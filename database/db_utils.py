@@ -1,9 +1,9 @@
-from models import SessionLocal, User, Server, Transaction
+from models import User, Server, Transaction
 
 
 # گرفتن یا ایجاد کاربر براساس شناسه تلگرام
 def get_or_create_user(telegram_id, username):
-    session = SessionLocal()
+    session = get_()
     user = session.query(User).filter_by(telegram_id=telegram_id).first()
     if not user:
         user = User(telegram_id=telegram_id, username=username)
