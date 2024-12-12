@@ -1,5 +1,8 @@
+import os
+
 import aiohttp
 from config import PROFIT_MARGIN, EXCHANGE_API_KEY
+
 
 class CurrencyConverter:
     def __init__(self):
@@ -19,23 +22,22 @@ class CurrencyConverter:
                     eur_to_usd = 1.08  # این مقدار باید از API مناسب گرفته شود
                     return usd_to_irr * eur_to_usd
         except Exception as e:
-            # در صورت خطا، از یک نرخ پیش‌فرض استفاد�� می‌کنیم
-            return 58000 * 1.08  # مقدار پیش‌فرض
+            return os.getenv("USD_TO_IR") * 1.08  # مقدار پیش‌فرض
 
     def calculate_final_price(self, eur_price: float) -> dict:
         """محاسبه قیمت نهایی با احتساب سود و کارمزدها"""
         # افزودن حاشیه سود
         price_with_margin = eur_price * PROFIT_MARGIN
-        
+
         # کارمزدهای ثابت (به یورو)
         FIXED_FEES = {
             'maintenance': 2,  # هزینه نگهداری
             'payment_gateway': 1,  # کارمزد درگاه پرداخت
             'support': 3,  # هزینه پشتیبانی
         }
-        
+
         total_eur = price_with_margin + sum(FIXED_FEES.values())
-        
+
         return {
             'original_eur': eur_price,
             'with_margin_eur': price_with_margin,
@@ -44,4 +46,5 @@ class CurrencyConverter:
             'fees_breakdown': FIXED_FEES
         }
 
-currency_converter = CurrencyConverter() 
+
+currency_converter = CurrencyConverter()

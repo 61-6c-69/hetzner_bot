@@ -1,26 +1,19 @@
-from api.models import PhoneVerification, TokenResponse, OTPVerification
-from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-from fastapi.security import OAuth2PasswordBearer
-from fastapi import APIRouter, HTTPException
-from database.models import User, OTPCode
-from datetime import datetime, timedelta
+from repositories.verification_repository import VerificationRepository
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from utils.auth import create_access_token
+from database.database import get_db
 from utils.sms import sms_service
-from jose import jwt
-import logging
-import random
-import string
+from api import schemas
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/verify-otp")
-
-
-def generate_otp():
-    """تولید کد تصادفی 6 رقمی"""
-    return ''.join(random.choices(string.digits, k=6))
 
 
 @router.post("/request-otp")
-async def request_otp(data: PhoneVerification):
+async def request_otp(
+    data: schemas.PhoneVerification,
+    db: AsyncSession = Depends(get_db)
+):
     """درخواست کد تایید"""
     phone = data.phone
 
@@ -32,23 +25,15 @@ async def request_otp(data: PhoneVerification):
     if phone.startswith('0'):
         phone = '+98' + phone[1:]
 
-    # بررسی وجود کاربر در تلگرام
-    user = await User.get_or_none(phone=phone)
-    if not user or not user.telegram_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Please register through Telegram bot first"
-        )
-
-    # حذف کدهای قبلی
-    await OTPCode.filter(phone=phone, is_used=False).delete()
-
-    # تولید و ذخیره کد جدید
-    code = generate_otp()
-    await OTPCode.create(
-        phone=phone,
-        code=code
-    )
+    repo = VerificationRepository(db)
+    
+    # بررسی وجود کاربر و ایجاد کد
+    try:
+        code = await repo.create_code(phone)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     # ارسال کد از طریق پیامک
     success = await sms_service.send_otp(phone, code)
@@ -58,79 +43,38 @@ async def request_otp(data: PhoneVerification):
     return {"message": "OTP sent successfully"}
 
 
-@router.post("/verify-phone")
-async def verify_phone(phone: PhoneVerification):
-    """ارسال کد تایید به شماره موبایل"""
-    # بررسی فرمت شماره موبایل
-    if not phone.phone.startswith('09') or len(phone.phone) != 11:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-
+@router.post("/verify-otp", response_model=schemas.Token)
+async def verify_otp(
+    data: schemas.OTPVerification,
+    db: AsyncSession = Depends(get_db)
+):
+    """تایید کد و ورود"""
     # تبدیل به فرمت بین‌المللی
-    international_phone = '+98' + phone.phone[1:]
-
-    # تولید و ارسال کد
-    code = ''.join(random.choices(string.digits, k=5))
-
-    # ذخیره کد در دیتابیس
-    await OTPCode.create(
-        phone=international_phone,
-        code=code
-    )
-
-    # ارسال کد از طریق پیامک
-    try:
-        await sms_service.send_otp(international_phone, code)
-    except Exception as e:
-        logging.error(f"Failed to send OTP: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send OTP")
-
-    return {"message": "OTP sent successfully"}
-
-
-@router.post("/verify-otp", response_model=TokenResponse)
-async def verify_otp(data: OTPVerification):
-    """تایید کد و ورود/ثبت‌نام"""
-    # تبدیل به فرم�� بین‌المللی
     phone = data.phone
     if phone.startswith('09'):
         phone = '+98' + phone[1:]
 
-    # بررسی کد
-    otp = await OTPCode.get_or_none(
-        phone=phone,
-        code=data.code,
-        is_used=False,
-        created_at__gte=datetime.utcnow() - timedelta(minutes=2)
-    )
+    repo = VerificationRepository(db)
+    
+    try:
+        # تایید کد
+        is_valid, user_id = await repo.verify_code(phone, data.code)
 
-    if not otp:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        # دریافت اطلاعات کاربر
+        user = await repo.get_user_by_phone(phone)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    otp.is_used = True
-    await otp.save()
+        # ایجاد توکن
+        access_token = create_access_token({"sub": str(user.id)})
 
-    # پیدا کردن یا ایجاد کاربر
-    user = await User.get_or_none(phone=phone)
-    if not user:
-        # ایجاد کاربر جدید
-        user = await User.create(
-            phone=phone,
-            first_name="کاربر جدید",
-            last_name=None,
-            username=None
-        )
-    # ایجاد توکن
-    access_token = jwt.encode(
-        {
-            "sub": str(user.id),
-            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        },
-        SECRET_KEY,
-        algorithm=ALGORITHM
-    )
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user
+        }
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

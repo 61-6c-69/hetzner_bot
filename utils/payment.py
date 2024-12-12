@@ -1,87 +1,64 @@
 import aiohttp
-from typing import Tuple
 from config import ZARINPAL_MERCHANT, ZARINPAL_CALLBACK_URL
+from typing import Dict, Optional
 
 
 class PaymentHandler:
-    """کلاس مدیریت پرداخت‌ها"""
+    def __init__(self):
+        self.merchant = ZARINPAL_MERCHANT
+        self.callback_url = ZARINPAL_CALLBACK_URL
+        self.payment_url = "https://api.zarinpal.com/pg/v4/payment"
+        self.verify_url = "https://api.zarinpal.com/pg/v4/payment/verify.json"
 
-    @staticmethod
-    async def create_payment(amount: int, description: str) -> Tuple[str, str]:
-        """ایجاد درخواست پرداخت در زرین‌پال
-        
-        Args:
-            amount: مبلغ به تومان
-            description: توضیحات تراکنش
-            
-        Returns:
-            tuple: (لینک پرداخت, کد پیگیری)
-        """
-        url = "https://api.zarinpal.com/pg/v4/payment/request.json"
+    async def create_payment(
+        self,
+        amount: float,
+        description: str = "شارژ حساب کاربری"
+    ) -> Dict[str, str]:
+        """Create a new payment request"""
         data = {
-            "merchant_id": ZARINPAL_MERCHANT,
-            "amount": amount * 10,  # تبدیل تومان به ریال
+            "merchant_id": self.merchant,
+            "amount": int(amount * 10),  # Convert to Rial
             "description": description,
-            "callback_url": ZARINPAL_CALLBACK_URL,
-            "metadata": {"mobile": "", "email": ""}
+            "callback_url": self.callback_url
         }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data) as response:
+            async with session.post(self.payment_url, json=data) as response:
                 result = await response.json()
 
-                if result["data"]["code"] == 100:
+                if response.status == 200 and result.get("data", {}).get("code") == 100:
                     authority = result["data"]["authority"]
-                    payment_url = f"https://www.zarinpal.com/pg/StartPay/{authority}"
-                    return payment_url, authority
+                    return {
+                        "payment_id": authority,
+                        "payment_url": f"https://www.zarinpal.com/pg/StartPay/{authority}"
+                    }
                 else:
-                    raise Exception(f"خطا در ایجاد تراکنش: {result['errors']['message']}")
+                    raise Exception(f"Payment creation failed: {result.get('errors')}")
 
-    @staticmethod
-    async def verify_payment(authority: str, amount: int) -> bool:
-        """تایید پرداخت در زرین‌پال
-        
-        Args:
-            authority: کد پیگیری تراکنش
-            amount: مبلغ به تومان
-            
-        Returns:
-            bool: وضعیت تراکنش
-        """
-        url = "https://api.zarinpal.com/pg/v4/payment/verify.json"
+    async def verify_payment(
+        self,
+        authority: str,
+        amount: float
+    ) -> bool:
+        """Verify a payment"""
         data = {
-            "merchant_id": ZARINPAL_MERCHANT,
-            "amount": amount * 10,  # تبدیل تومان به ریال
-            "authority": authority
+            "merchant_id": self.merchant,
+            "authority": authority,
+            "amount": int(amount * 10)  # Convert to Rial
         }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data) as response:
+            async with session.post(self.verify_url, json=data) as response:
                 result = await response.json()
-                return result["data"]["code"] == 100
 
-    @staticmethod
-    def format_payment_message(amount: int, description: str, payment_url: str) -> str:
-        """ایجاد پیام راهنمای پرداخت
-        
-        Args:
-            amount: مبلغ به تومان
-            description: توضیحات تراکنش
-            payment_url: لینک پرداخت
-            
-        Returns:
-            str: پیام راهنمای پرداخت
-        """
-        return (
-            f"💰 مبلغ قابل پرداخت: {amount:,} تومان\n\n"
-            "راهنمای پرداخت:\n"
-            "1️⃣ روی دکمه «پرداخت» کلیک کنید\n"
-            "2️⃣ در درگاه زرین‌پال پرداخت را انجام دهید\n"
-            "3️⃣ پس از پرداخت موفق، به صورت خودکار به ربات برمی‌گردید\n"
-            "4️⃣ پس از تایید تراکنش، موجودی شما افزایش می‌یابد\n\n"
-            f"توضیحات: {description}\n"
-            f"لینک پرداخت: {payment_url}"
-        )
+                if response.status == 200:
+                    if result.get("data", {}).get("code") == 100:
+                        return True
+                    elif result.get("data", {}).get("code") == 101:
+                        return True  # Payment was verified before
+
+                return False
 
 
 payment_handler = PaymentHandler()

@@ -1,7 +1,9 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-import jwt
 from datetime import datetime, timedelta
+
+from jose import JWTError, jwt
+
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, ADMIN_IDS
 from database.models import User
 from sqlalchemy import select
@@ -11,9 +13,10 @@ from fastapi import status
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/verify-otp")
 
+
 async def get_current_user(
-    db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+        db: AsyncSession = Depends(get_db),
+        token: str = Depends(oauth2_scheme)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -32,10 +35,11 @@ async def get_current_user(
         select(User).where(User.username == username)
     )
     user = result.scalar_one_or_none()
-    
+
     if user is None:
         raise credentials_exception
     return user
+
 
 async def get_current_admin(user: User = Depends(get_current_user)) -> User:
     """دریافت کاربر ادمین فعلی"""
@@ -46,9 +50,10 @@ async def get_current_admin(user: User = Depends(get_current_user)) -> User:
         )
     return user
 
+
 def create_access_token(data: dict) -> str:
     """ایجاد توکن دسترسی"""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM) 
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

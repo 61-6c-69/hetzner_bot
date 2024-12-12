@@ -1,9 +1,7 @@
-import os
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+import os
 
 # تنظیمات دیتابیس
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
@@ -28,10 +26,11 @@ AsyncSessionLocal = sessionmaker(
 
 Base = declarative_base()
 
+
 # Dependency برای FastAPI
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
         finally:
-            await session.close() 
+            await session.close()

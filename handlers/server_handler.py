@@ -1,5 +1,7 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
+
+from database.models import User, Server
 from utils.hetzner_api import HetznerAPI
 from utils.keyboards import (
     os_selection_keyboard,
@@ -9,7 +11,6 @@ from utils.keyboards import (
     get_main_keyboard,
     get_server_management_keyboard
 )
-from models import Server, User
 import logging
 from utils.hetzner_api import hetzner
 from utils.notifications import send_notification, NotificationType

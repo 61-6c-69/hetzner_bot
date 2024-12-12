@@ -1,8 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from tortoise import Tortoise
-from database.models import Server, ServerStats
 from utils.hetzner_api import hetzner
 from config import DATABASE_URL
 

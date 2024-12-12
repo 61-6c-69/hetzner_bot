@@ -1,10 +1,10 @@
-from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
 from handlers import auth_handler, server_handler, payment_handler, admin_handler
-from config import BOT_TOKEN
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from utils.keyboards import main_menu_keyboard
+from aiogram import Bot, Dispatcher, types
+from aiogram.dispatcher import FSMContext
+from config import BOT_TOKEN
 import logging
 import asyncio
 

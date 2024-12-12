@@ -4,6 +4,7 @@ from config import SMS_API_KEY, SMS_TEMPLATE_ID
 
 logger = logging.getLogger(__name__)
 
+
 class SMSService:
     def __init__(self):
         self.api_key = SMS_API_KEY
@@ -13,7 +14,7 @@ class SMSService:
             "X-API-KEY": self.api_key,
             "Content-Type": "application/json"
         }
-    
+
     async def send_otp(self, phone: str, code: str) -> bool:
         """ارسال کد تایید"""
         url = f"{self.base_url}/send/verify"
@@ -27,7 +28,7 @@ class SMSService:
                 }
             ]
         }
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=self.headers, json=payload) as response:
@@ -41,4 +42,5 @@ class SMSService:
             logger.error(f"Failed to send SMS: {e}")
             return False
 
-sms_service = SMSService() 
+
+sms_service = SMSService()

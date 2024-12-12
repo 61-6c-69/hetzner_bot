@@ -1,7 +1,6 @@
+from config import REDIS_URL
 from redis import Redis
 import json
-from database.models import Server
-from config import REDIS_URL
 
 redis_client = Redis.from_url(REDIS_URL)
 CACHE_KEY = "server_prices"

@@ -2,7 +2,6 @@ import logging
 import requests
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from database.models import User, Server, Transaction
 from config import BOT_TOKEN, ADMIN_IDS, ZARINPAL_MERCHANT, ZARINPAL_CALLBACK_URL

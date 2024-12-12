@@ -1,44 +1,53 @@
+from repositories.transaction_repository import TransactionRepository
+from repositories.user_repository import UserRepository
 from fastapi import APIRouter, Depends, HTTPException
-from database.models import User, Transaction
-from api.models import TransactionResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.payment import PaymentHandler
 from utils.auth import get_current_user
+from database.database import get_db
 from config import API_URL
-from typing import List
-
+from api import schemas
 
 router = APIRouter()
 
 
-@router.get("/transactions", response_model=List[TransactionResponse])
-async def list_transactions(user: User = Depends(get_current_user)):
-    """لیست تراکنش‌ها"""
-    transactions = await Transaction.filter(user=user).order_by('-created_at')
-    return transactions
+@router.get("/transactions", response_model=list[schemas.TransactionResponse])
+async def list_transactions(
+        current_user: schemas.User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    repo = TransactionRepository(db)
+    return await repo.get_user_transactions(current_user.id)
 
 
 @router.get("/balance")
-async def get_balance(user: User = Depends(get_current_user)):
-    """دریافت موجودی"""
-    balance = await user.get_balance()
+async def get_balance(
+        current_user: schemas.User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    repo = UserRepository(db)
+    balance = await repo.get_balance(current_user.id)
     return {"balance": balance}
 
 
 @router.post("/")
 async def create_payment_link(
         amount: int,
-        current_user: User = Depends(get_current_user)
+        current_user: schemas.User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
 ):
-    """ایجاد لینک پرداخت"""
+    transaction_repo = TransactionRepository(db)
+    payment_handler = PaymentHandler()
+
     try:
-        # ایجاد تراکنش در وضعیت pending
-        transaction = await Transaction.create(
-            user=current_user,
+        # Create pending transaction
+        transaction = await transaction_repo.create(
+            user_id=current_user.id,
             amount=amount,
             status='pending'
         )
 
-        payment_handler = PaymentHandler()
+        # Create payment link
         payment_link = await payment_handler.create_payment(
             amount=amount,
             description=f"شارژ حساب کاربری {current_user.username}",
@@ -53,28 +62,26 @@ async def create_payment_link(
 
 
 @router.get("/verify")
-async def verify_payment_callback(
+async def verify_payment(
         status: str,
         authority: str,
-        transaction_id: int
+        db: AsyncSession = Depends(get_db)
 ):
-    """کالبک تایید پرداخت"""
-    try:
-        transaction = await Transaction.get_or_none(id=transaction_id)
-        if not transaction or transaction.status != 'pending':
-            raise HTTPException(status_code=400, detail="تراکنش نامعتبر است")
+    transaction_repo = TransactionRepository(db)
+    payment_handler = PaymentHandler()
 
-        if status == "OK":
-            payment_handler = PaymentHandler()
-            success = await payment_handler.verify_payment(
-                transaction=transaction,
-                authority=authority
-            )
+    # Get transaction
+    transaction = await transaction_repo.get_by_payment_id(authority)
+    if not transaction or transaction.status != 'pending':
+        raise HTTPException(status_code=400, detail="Invalid transaction")
 
-            if success:
-                return {"message": "پرداخت با موفقیت انجام شد"}
+    if status == "OK":
+        # Verify payment
+        if await payment_handler.verify_payment(authority):
+            # Update transaction status
+            await transaction_repo.update_status(transaction.id, 'completed')
+            return {"message": "Payment successful"}
 
-        raise HTTPException(status_code=400, detail="پرداخت ناموفق")
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # Payment failed
+    await transaction_repo.update_status(transaction.id, 'failed')
+    raise HTTPException(status_code=400, detail="Payment failed")
