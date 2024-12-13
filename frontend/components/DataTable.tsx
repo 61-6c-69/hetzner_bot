@@ -4,6 +4,10 @@ import SearchInput from './SearchInput';
 import SortButton from './SortButton';
 import type { Column, DataTableProps } from '@/types/datatable';
 
+function isKeyOfT<T>(key: keyof T | string, item: T): key is keyof T {
+    return key in item;
+}
+
 export default function DataTable<T>({
     columns,
     data,
@@ -86,7 +90,9 @@ export default function DataTable<T>({
                                             >
                                                 {column.render
                                                     ? column.render(item)
-                                                    : String(item[column.key])}
+                                                    : isKeyOfT(column.key, item)
+                                                        ? String(item[column.key])
+                                                        : ''}
                                             </td>
                                         ))}
                                     </tr>
