@@ -18,10 +18,12 @@ export interface Server {
     id: number;
     user_id: number;
     name: string;
-    status: string;
+    type: string;
+    location: string;
+    os: string;
     ip: string;
+    status: string;
     datacenter: string;
-    server_type: string;
     hourly_price: number;
     monthly_price: number;
     last_charge_at: string;

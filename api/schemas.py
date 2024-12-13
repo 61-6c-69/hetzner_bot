@@ -16,7 +16,6 @@ class NotificationCreate(BaseModel):
     message: str
 
 
-
 class TransactionType(str, Enum):
     DEPOSIT = "deposit"
     WITHDRAWAL = "withdrawal"
@@ -58,8 +57,6 @@ class UserCreate(UserBase):
     phone: str
 
 
-
-
 class NotificationSettingsBase(BaseModel):
     server_notifications: bool
     payment_notifications: bool
@@ -78,7 +75,6 @@ class UserSettingsUpdate(BaseModel):
     phone: Optional[str] = None
     telegram_id: Optional[int] = None
     notification_settings: Optional[NotificationSettingsUpdate] = None
-
 
 
 class User(UserBase):

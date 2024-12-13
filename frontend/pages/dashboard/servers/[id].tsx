@@ -1,17 +1,16 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
+import {useState} from 'react';
+import {useRouter} from 'next/router';
 import DashboardLayout from '@/components/DashboardLayout';
-import { useQuery, useMutation } from 'react-query';
-import { endpoints } from '@/services/api';
-import { toast } from 'react-toastify';
-import { FiPower, FiRotateCw, FiTrash2 } from 'react-icons/fi';
-import { Server } from '@/types';
+import {useMutation, useQuery} from 'react-query';
+import {endpoints} from '@/services/api';
+import {toast} from 'react-toastify';
+import {FiPower, FiRotateCw, FiTrash2} from 'react-icons/fi';
+import {Server} from '@/types';
 
 function calculateUsageHours(lastChargeAt: string): number {
   const lastCharge = new Date(lastChargeAt);
   const now = new Date();
-  const diffInHours = Math.floor((now.getTime() - lastCharge.getTime()) / (1000 * 60 * 60));
-  return diffInHours;
+  return Math.floor((now.getTime() - lastCharge.getTime()) / (1000 * 60 * 60));
 }
 
 export default function ServerDetails() {
@@ -129,12 +128,8 @@ export default function ServerDetails() {
                 <span className="font-bold">{server.ip}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">دیتاسنتر:</span>
-                <span className="font-bold">{server.datacenter}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-gray-600">نوع سرور:</span>
-                <span className="font-bold">{server.server_type}</span>
+                <span className="font-bold">{server.type}</span>
               </div>
             </div>
           </div>
