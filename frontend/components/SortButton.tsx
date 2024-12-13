@@ -1,7 +1,7 @@
 import { FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import type { SortButtonProps } from '@/types';
 
-export default function SortButton({ label, field, currentSort, onSort }: SortButtonProps) {
+export default function SortButton({ label, field, currentSort, onSort, className = '' }: SortButtonProps) {
     const isActive = currentSort.field === field;
 
     return (

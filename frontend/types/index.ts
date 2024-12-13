@@ -226,6 +226,7 @@ export interface SortButtonProps {
         order: 'asc' | 'desc';
     };
     onSort: (field: string) => void;
+    className?: string;
 }
 
 // Stats Types
