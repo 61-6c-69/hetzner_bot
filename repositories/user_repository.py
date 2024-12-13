@@ -1,11 +1,13 @@
 from database.models import User, Transaction, Base, NotificationSettings
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Tuple
 from datetime import datetime, timedelta
 from sqlalchemy import select, func
+from decimal import Decimal
 from api import schemas
 
 from repositories.base import BaseRepository
+from repositories.transaction_repository import TransactionManager
 
 ModelType = TypeVar("ModelType", bound=Base)
 
@@ -14,6 +16,7 @@ class UserRepository(BaseRepository[User]):
     def __init__(self, db: AsyncSession):
         super().__init__(User, db)
         self.cache_ttl = timedelta(minutes=30)
+        self.transaction_manager = TransactionManager(db)
 
     async def get_by_phone(self, phone: str) -> Optional[User]:
         """Get user by phone number"""
@@ -104,17 +107,37 @@ class UserRepository(BaseRepository[User]):
 
         return user
 
-    async def get_balance(self, user_id: int) -> float:
-        """Get user's current balance"""
-        result = await self.db.execute(
-            select(func.sum(Transaction.amount))
-            .where(
-                Transaction.user_id == user_id,
-                Transaction.status == 'completed'
-            )
+    async def get_balance(self, user_id: int) -> Decimal:
+        """Get user's current balance using TransactionManager"""
+        return await self.transaction_manager._calculate_balance(user_id)
+
+    async def charge_account(
+        self,
+        user_id: int,
+        amount: float,
+        payment_id: str,
+        description: Optional[str] = None
+    ) -> Tuple[Transaction, Decimal]:
+        """Charge user account using TransactionManager"""
+        return await self.transaction_manager.create_deposit(
+            user_id=user_id,
+            amount=amount,
+            payment_id=payment_id,
+            description=description
         )
-        balance = result.scalar()
-        return float(balance if balance is not None else 0.0)
+
+    async def deduct_balance(
+        self,
+        user_id: int,
+        amount: float,
+        server_id: int
+    ) -> Tuple[Transaction, Decimal]:
+        """Deduct balance for server charges using TransactionManager"""
+        return await self.transaction_manager.create_server_charge(
+            user_id=user_id,
+            amount=amount,
+            server_id=server_id
+        )
 
     async def list_users(
             self,
@@ -245,3 +268,20 @@ class UserRepository(BaseRepository[User]):
             .where(NotificationSettings.user_id == user_id)
         )
         return result.scalar_one_or_none()
+
+    async def get_all_users(self) -> List[User]:
+        """Get all users"""
+        result = await self.db.execute(
+            select(User)
+            .order_by(User.id)
+        )
+        return list(result.scalars().all())
+
+    async def get_admins(self) -> List[User]:
+        """Get all admin users"""
+        result = await self.db.execute(
+            select(User)
+            .where(User.role == UserRole.ADMIN)
+            .order_by(User.id)
+        )
+        return list(result.scalars().all())

@@ -1,15 +1,20 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from database.models import Transaction, User, Server, NotificationSettings
+from database.models import Transaction, User, Server, NotificationSettings, UserRole
 from config import ADMIN_IDS
 from utils.notifications import send_notification, NotificationType
 from utils.hetzner_api import hetzner
+from utils.auth import is_admin_role
 import logging
 
 logger = logging.getLogger(__name__)
 
-async def is_admin(user_id: int) -> bool:
-    """بررسی ادمین بودن کاربر"""
-    return user_id in ADMIN_IDS
+async def is_admin(telegram_id: int) -> bool:
+    """Check if user is admin"""
+    try:
+        user = await User.get(telegram_id=telegram_id)
+        return user and is_admin_role(user.role)
+    except Exception:
+        return False
 
 async def handle_payment_proof(update, context):
     """رسیدگی به رسید پرداخت ارسالی کاربر"""
@@ -78,7 +83,7 @@ async def approve_payment(update, context):
         transaction.status = 'completed'
         await transaction.save()
         
-        # اطلاع به کاربر
+        # اطلاع ��ه کاربر
         await context.bot.send_message(
             chat_id=user_id,
             text=f"✅ پرداخت شما به مبلغ {transaction.amount:,} تومان تایید شد.\n"
@@ -135,6 +140,7 @@ async def admin_panel(update, context):
     """نمایش پنل مدیریت"""
     user_id = update.effective_user.id
     if not await is_admin(user_id):
+        await update.message.reply_text("⛔️ شما دسترسی به این بخش را ندارید!")
         return
     
     # آمار کلی
@@ -160,7 +166,7 @@ async def admin_panel(update, context):
         f"💰 تراکنش‌های در انتظار: {pending_payments}"
     )
     
-    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard)) 
+    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def admin_users(update, context):
     """مدیریت کاربران"""
@@ -171,7 +177,7 @@ async def admin_users(update, context):
     
     await query.answer()
     
-    # دریافت ��یست کاربران
+    # دریافت یست کاربران
     users = await User.all().order_by('-created_at').limit(10)
     
     message = "👥 لیست آخرین کاربران:\n\n"
@@ -348,3 +354,59 @@ async def confirm_purchase(update, context):
                 InlineKeyboardButton("🔙 بازگشت", callback_data="admin_panel")
             ]])
         )
+
+async def get_user_info(user_id: int):
+    """دریافت اطلاعات کاربر"""
+    user = await User.get(id=user_id)
+    balance_toman = await get_user_balance(user.telegram_id)
+    
+    return (
+        f"👤 نام: {user.first_name} {user.last_name or ''}\n"
+        f"📱 تلفن: {user.phone}\n"
+        f"📧 ایمیل: {user.email}\n"
+        f"💰 موجودی: {balance_toman:,} تومان\n"
+        f"📅 تاریخ عضویت: {user.created_at.strftime('%Y-%m-%d')}"
+    )
+
+async def approve_server(user_id: int, server_price: int):
+    """تایید درخواست سرور"""
+    user = await User.get(id=user_id)
+    balance = await get_user_balance(user.telegram_id)
+    
+    if balance < server_price:
+        return False, "موجودی کاربر کافی نیست"
+        
+    # Create a server charge transaction
+    await Transaction.create(
+        user=user,
+        amount=server_price,
+        type="server_charge",
+        status="completed",
+        description="Server creation charge"
+    )
+    
+    return True, "سرور با موفقیت ایجاد شد"
+
+async def promote_to_admin(user_id: int) -> bool:
+    """ارتقاء کاربر به ادمین"""
+    try:
+        user = await User.get(id=user_id)
+        if user:
+            user.role = UserRole.ADMIN
+            await user.save()
+            return True
+    except Exception:
+        return False
+    return False
+
+async def demote_from_admin(user_id: int) -> bool:
+    """حذف دسترسی ادمین"""
+    try:
+        user = await User.get(id=user_id)
+        if user and user.role == UserRole.ADMIN:
+            user.role = UserRole.USER
+            await user.save()
+            return True
+    except Exception:
+        return False
+    return False

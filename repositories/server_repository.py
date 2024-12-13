@@ -3,119 +3,142 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import Server
 from repositories.base import BaseRepository
-from typing import List, Optional, Dict, Any
-
+from typing import List, Optional, Dict, Any, Tuple
 from utils.hetzner_api import hetzner
+from utils.server_sync import ServerSynchronizer
+from fastapi import HTTPException
 
 
 class ServerRepository(BaseRepository[Server]):
     def __init__(self, db: AsyncSession):
         super().__init__(Server, db)
-
-    async def get_running_servers(self) -> List[Server]:
-        """دریافت سرورهای در حال اجرا"""
-        result = await self.db.execute(
-            select(Server)
-            .where(Server.status == 'running')
-            .order_by(Server.id)
-        )
-        return result.scalars().all()
-
-    async def get_by_id(self, server_id: int) -> Optional[Server]:
-        """دریافت سرور با شناسه"""
-        result = await self.db.execute(
-            select(Server).where(Server.id == server_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def get_user_servers(self, user_id: int) -> List[Server]:
-        """دریافت سرورهای یک کاربر"""
-        result = await self.db.execute(
-            select(Server)
-            .where(Server.user_id == user_id)
-            .order_by(Server.created_at.desc())
-        )
-        return result.scalars().all()
+        self.synchronizer = ServerSynchronizer(db)
 
     async def create_server(
         self,
         user_id: int,
         name: str,
-        hetzner_id: str,
         server_type: str,
-        status: str = 'creating',
-        hourly_price: float = 0
-    ) -> Server:
-        """ایجاد سرور جدید"""
-        server = Server(
-            user_id=user_id,
-            name=name,
-            hetzner_id=hetzner_id,
-            server_type=server_type,
-            status=status,
-            hourly_price=hourly_price,
-            created_at=datetime.utcnow(),
-            last_charge_at=datetime.utcnow()
-        )
-        self.db.add(server)
-        await self.db.commit()
-        await self.db.refresh(server)
-        return server
-
-    async def update_status(
-        self,
-        server_id: int,
-        status: str,
-        error_message: Optional[str] = None
-    ) -> Optional[Server]:
-        """به‌روزرسانی وضعیت سرور"""
-        server = await self.get_by_id(server_id)
-        if server:
-            server.status = status
-            if error_message:
-                server.error_message = error_message
-            await self.db.commit()
-            await self.db.refresh(server)
-        return server
-
-    async def update_last_charge(
-        self,
-        server_id: int,
-        charge_time: datetime
-    ) -> Optional[Server]:
-        """به‌روزرسانی زمان آخرین شارژ"""
-        server = await self.get_by_id(server_id)
-        if server:
-            server.last_charge_at = charge_time
-            await self.db.commit()
-            await self.db.refresh(server)
-        return server
-
-    async def delete_server(self, server_id: int) -> bool:
-        """حذف سرور"""
-        server = await self.get_by_id(server_id)
-        if server:
-            await self.db.delete(server)
-            await self.db.commit()
-            return True
-        return False
-
-    async def update_ip(self, server_id: int, new_ip: str) -> bool:
-        """Update server IP address"""
-        result = await self.db.execute(
-            update(Server)
-            .where(Server.id == server_id)
-            .values(ip=new_ip)
-            .returning(Server)
-        )
-        await self.db.commit()
-        return bool(result.scalar_one_or_none())
-
-    async def get_server_stats(self, server_id: int) -> Dict[str, Any]:
-        """Get server monitoring stats"""
-        server = await self.get(server_id)
-        if not server:
-            return None
+        location: str,
+        os: str
+    ) -> Tuple[Server, Dict]:
+        """Create a new server with Hetzner integration"""
+        try:
+            # ایجاد سرور در Hetzner
+            hetzner_response = await hetzner.create_server(server_type, location, os)
             
-        # Get stats from Hetzner
-        return await hetzner.get_server_metrics(server.hetzner_id)
+            # ایجاد سرور در دیتابیس
+            server = await super().create(
+                user_id=user_id,
+                name=name,
+                hetzner_id=hetzner_response['server']['id'],
+                type=server_type,
+                location=location,
+                os=os,
+                status='creating',
+                ip=hetzner_response['server']['public_net']['ipv4']['ip'],
+                created_at=datetime.utcnow()
+            )
+            
+            return server, hetzner_response
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error creating server: {str(e)}"
+            )
+
+    async def get_user_servers(
+        self,
+        user_id: int,
+        sync: bool = False
+    ) -> List[Server]:
+        """Get user's servers with optional sync"""
+        result = await self.db.execute(
+            select(Server).where(Server.user_id == user_id)
+        )
+        servers = result.scalars().all()
+        
+        if sync:
+            for server in servers:
+                await self.synchronizer.sync_server(server.id)
+        
+        return servers
+
+    async def get_server_with_sync(
+        self,
+        server_id: int,
+        user_id: Optional[int] = None
+    ) -> Server:
+        """Get server with status sync"""
+        query = select(Server).where(Server.id == server_id)
+        if user_id:
+            query = query.where(Server.user_id == user_id)
+            
+        result = await self.db.execute(query)
+        server = result.scalar_one_or_none()
+        
+        if not server:
+            raise HTTPException(status_code=404, detail="Server not found")
+            
+        # همگام‌سازی وضعیت
+        await self.synchronizer.sync_server(server.id)
+        
+        return server
+
+    async def power_on(self, server_id: int, user_id: Optional[int] = None) -> Server:
+        """Power on server"""
+        server = await self.get_server_with_sync(server_id, user_id)
+        
+        try:
+            await hetzner.power_on(server.hetzner_id)
+            server.status = 'starting'
+            await self.db.commit()
+            return server
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error powering on server: {str(e)}"
+            )
+
+    async def power_off(self, server_id: int, user_id: Optional[int] = None) -> Server:
+        """Power off server"""
+        server = await self.get_server_with_sync(server_id, user_id)
+        
+        try:
+            await hetzner.power_off(server.hetzner_id)
+            server.status = 'stopping'
+            await self.db.commit()
+            return server
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error powering off server: {str(e)}"
+            )
+
+    async def get_server_metrics(self, server_id: int, user_id: Optional[int] = None) -> Dict:
+        """Get server metrics"""
+        server = await self.get_server_with_sync(server_id, user_id)
+        
+        try:
+            return await hetzner.get_server_metrics(server.hetzner_id)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error getting server metrics: {str(e)}"
+            )
+
+    async def change_ip(self, server_id: int, user_id: Optional[int] = None) -> Server:
+        """Change server IP"""
+        server = await self.get_server_with_sync(server_id, user_id)
+        
+        try:
+            response = await hetzner.change_ip(server.hetzner_id)
+            # همگام‌سازی اجباری برای دریافت IP جدید
+            await self.synchronizer.sync_server(server.id, force=True)
+            return server
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error changing server IP: {str(e)}"
+            )

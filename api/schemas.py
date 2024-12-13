@@ -1,13 +1,20 @@
-from typing import Dict, Optional, List, Any
-from pydantic import BaseModel, EmailStr, constr
+from typing import Dict, Optional, List, Any, Generic, TypeVar
+from pydantic import BaseModel, EmailStr, constr, Field
 from datetime import datetime
 from enum import Enum
+
+T = TypeVar('T')
 
 
 class ServerActionType(str, Enum):
     START = "start"
     STOP = "stop"
     RESTART = "restart"
+
+
+class NotificationCreate(BaseModel):
+    message: str
+
 
 
 class TransactionType(str, Enum):
@@ -51,6 +58,19 @@ class UserCreate(UserBase):
     phone: str
 
 
+
+
+class NotificationSettingsBase(BaseModel):
+    server_notifications: bool
+    payment_notifications: bool
+    ticket_notifications: bool
+    low_balance_threshold: int
+
+
+class NotificationSettingsUpdate(NotificationSettingsBase):
+    pass
+
+
 class UserSettingsUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -60,13 +80,13 @@ class UserSettingsUpdate(BaseModel):
     notification_settings: Optional[NotificationSettingsUpdate] = None
 
 
+
 class User(UserBase):
     id: int
     first_name: str
     last_name: Optional[str]
     phone: str
     role: str
-    balance: float
     is_active: bool
     created_at: datetime
     telegram_id: Optional[int] = None
@@ -107,23 +127,62 @@ class Server(ServerBase):
         from_attributes = True
 
 
-class TicketBase(BaseModel):
-    subject: str
+class TicketStatus(str, Enum):
+    OPEN = 'open'
+    IN_PROGRESS = 'in_progress'
+    CLOSED = 'closed'
+    WAITING_FOR_USER = 'waiting_for_user'
+    WAITING_FOR_ADMIN = 'waiting_for_admin'
+
+
+class TicketPriority(str, Enum):
+    LOW = 'low'
+    MEDIUM = 'medium'
+    HIGH = 'high'
+    URGENT = 'urgent'
+
+
+class TicketCreate(BaseModel):
+    subject: str = Field(..., min_length=3, max_length=200)
+    message: str = Field(..., min_length=10)
+    priority: TicketPriority = Field(default=TicketPriority.MEDIUM)
+
+
+class TicketUpdate(BaseModel):
+    status: Optional[TicketStatus] = None
+    priority: Optional[TicketPriority] = None
+
+
+class TicketReply(BaseModel):
+    message: str = Field(..., min_length=1)
+    is_admin: bool = False
+
+
+class TicketMessage(BaseModel):
+    id: int
+    ticket_id: int
+    user_id: int
     message: str
-    priority: str = 'medium'
+    file_path: Optional[str]
+    is_admin: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
-class TicketCreate(TicketBase):
-    pass
-
-
-class TicketResponse(TicketBase):
+class TicketResponse(BaseModel):
     id: int
     user_id: int
-    status: str
+    subject: str
+    message: str
     file_path: Optional[str]
+    status: TicketStatus
+    priority: TicketPriority
     created_at: datetime
     updated_at: datetime
+    messages: List[TicketMessage] = []
+    user: Optional['UserResponse'] = None
 
     class Config:
         from_attributes = True
@@ -135,24 +194,9 @@ class TicketMessageResponse(BaseModel):
     user_id: int
     message: str
     file_path: Optional[str]
+    is_admin: bool
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class TicketReply(BaseModel):
-    message: str
-    file_path: Optional[str] = None
-
-
-class TicketMessage(BaseModel):
-    id: int
-    ticket_id: int
-    user_id: int
-    message: str
-    file_path: Optional[str] = None
-    created_at: datetime
+    user: Optional['UserResponse'] = None
 
     class Config:
         from_attributes = True
@@ -192,17 +236,6 @@ class TransactionResponse(Transaction):
         from_attributes = True
 
 
-class NotificationSettingsBase(BaseModel):
-    server_notifications: bool
-    payment_notifications: bool
-    ticket_notifications: bool
-    low_balance_threshold: int
-
-
-class NotificationSettingsUpdate(NotificationSettingsBase):
-    pass
-
-
 class NotificationSettings(NotificationSettingsBase):
     id: int
     user_id: int
@@ -223,3 +256,39 @@ class Price(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginationParams(BaseModel):
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=10, ge=1, le=100)
+    search: Optional[str] = None
+    sort_by: Optional[str] = None
+    sort_order: str = Field(default='asc', regex='^(asc|desc)$')
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+
+class PaginatedUsers(PaginatedResponse[User]):
+    pass
+
+
+class PaginatedServers(PaginatedResponse[Server]):
+    pass
+
+
+class PaginatedTransactions(PaginatedResponse[Transaction]):
+    pass
+
+
+class PaginatedTickets(PaginatedResponse[TicketResponse]):
+    pass
+
+
+class PaginatedTicketMessages(PaginatedResponse[TicketMessageResponse]):
+    pass

@@ -14,7 +14,6 @@ async def get_or_create_user(tg_user):
             email="",  # باید بعداً توسط کاربر تنظیم شود
             phone="",  # باید بعداً توسط کاربر تنظیم شود
             role="user",
-            balance=0,
             is_active=True
         )
         # ایجاد تنظیمات اعلان‌ها برای کاربر جدید
@@ -29,10 +28,18 @@ async def get_or_create_user(tg_user):
     return user
 
 async def get_user_balance(telegram_id: int) -> float:
-    """دریافت موجودی کاربر"""
+    """دریافت موجودی کاربر از تراکنش‌ها"""
     try:
         user = await User.get(telegram_id=telegram_id)
-        return float(user.balance)
+        # Calculate balance from transactions
+        transactions = await Transaction.filter(user_id=user.id, status='completed')
+        balance = 0.0
+        for tx in transactions:
+            if tx.type in ['deposit']:
+                balance += float(tx.amount)
+            elif tx.type in ['withdrawal', 'server_charge', 'ip_change']:
+                balance -= float(tx.amount)
+        return balance
     except DoesNotExist:
         return 0.0
 

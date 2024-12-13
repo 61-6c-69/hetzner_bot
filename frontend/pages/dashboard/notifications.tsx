@@ -2,134 +2,147 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-toastify';
-import Cookies from 'js-cookie';
+import { endpoints } from '@/services/api';
+import { NotificationSettings } from '@/types';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
-export default function NotificationSettings() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState({
-    server_notifications: true,  // اعلان‌های مربوط به سرور
-    payment_notifications: true, // اعلان‌های پرداخت
-    ticket_notifications: true,  // اعلان‌های تیکت
-    low_balance_threshold: 50000 // حد اعلان موجودی کم
-  });
+export default function NotificationsPage() {
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [settings, setSettings] = useState<NotificationSettings | null>(null);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+    useEffect(() => {
+        fetchSettings();
+    }, []);
 
-  const loadSettings = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/notification-settings`, {
-        headers: {
-          'Authorization': `Bearer ${Cookies.get('token')}`
+    const fetchSettings = async () => {
+        try {
+            const { data } = await endpoints.user.getNotificationSettings();
+            setSettings(data);
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'خطا در دریافت تنظیمات');
+        } finally {
+            setLoading(false);
         }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSettings(data);
-      }
-    } catch (error) {
-      toast.error('خطا در دریافت تنظیمات');
-    } finally {
-      setLoading(false);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+
+        try {
+            await endpoints.user.updateSettings({
+                notification_settings: settings
+            });
+            toast.success('تنظیمات با موفقیت به‌روز شد');
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'خطا در به‌روزرسانی تنظیمات');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="flex justify-center items-center h-64">
+                    <LoadingSpinner />
+                </div>
+            </DashboardLayout>
+        );
     }
-  };
 
-  const saveSettings = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/notification-settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Cookies.get('token')}`
-        },
-        body: JSON.stringify(settings)
-      });
+    return (
+        <DashboardLayout>
+            <div className="max-w-4xl mx-auto p-6">
+                <h1 className="text-2xl font-bold mb-6">تنظیمات اعلان‌ها</h1>
 
-      if (res.ok) {
-        toast.success('تنظیمات با موفقیت ذخیره شد');
-      } else {
-        toast.error('خطا در ذخیره تنظیمات');
-      }
-    } catch (error) {
-      toast.error('خطا در برقراری ارتباط');
-    } finally {
-      setSaving(false);
-    }
-  };
+                <div className="bg-white rounded-lg shadow p-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">
+                                    اعلان‌های سرور
+                                </label>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings?.server_notifications}
+                                        onChange={(e) => setSettings(prev => ({
+                                            ...prev!,
+                                            server_notifications: e.target.checked
+                                        }))}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
 
-  if (loading) {
-    return <div>در حال بارگذاری...</div>;
-  }
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">
+                                    اعلان‌های پرداخت
+                                </label>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings?.payment_notifications}
+                                        onChange={(e) => setSettings(prev => ({
+                                            ...prev!,
+                                            payment_notifications: e.target.checked
+                                        }))}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
 
-  return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">تنظیمات اعلان‌ها</h1>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">
+                                    اعلان‌های تیکت
+                                </label>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings?.ticket_notifications}
+                                        onChange={(e) => setSettings(prev => ({
+                                            ...prev!,
+                                            ticket_notifications: e.target.checked
+                                        }))}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
 
-        <div className="bg-white p-6 rounded-lg shadow space-y-6">
-          {!user?.telegram_id && (
-            <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-4 rounded">
-              ⚠️ برای دریافت اعلان‌ها، ابتدا باید تلگرام خود را متصل کنید.
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    آستانه هشدار موجودی کم (تومان)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={settings?.low_balance_threshold}
+                                    onChange={(e) => setSettings(prev => ({
+                                        ...prev!,
+                                        low_balance_threshold: parseInt(e.target.value)
+                                    }))}
+                                    min="0"
+                                    step="10000"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                            {saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+                        </button>
+                    </form>
+                </div>
             </div>
-          )}
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-gray-700">اعلان‌های سرور</label>
-              <input
-                type="checkbox"
-                checked={settings.server_notifications}
-                onChange={(e) => setSettings({...settings, server_notifications: e.target.checked})}
-                className="toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="text-gray-700">اعلان‌های پرداخت</label>
-              <input
-                type="checkbox"
-                checked={settings.payment_notifications}
-                onChange={(e) => setSettings({...settings, payment_notifications: e.target.checked})}
-                className="toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="text-gray-700">اعلان‌های تیکت</label>
-              <input
-                type="checkbox"
-                checked={settings.ticket_notifications}
-                onChange={(e) => setSettings({...settings, ticket_notifications: e.target.checked})}
-                className="toggle"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-gray-700">حد اعلان موجودی کم (تومان)</label>
-              <input
-                type="number"
-                value={settings.low_balance_threshold}
-                onChange={(e) => setSettings({...settings, low_balance_threshold: parseInt(e.target.value)})}
-                className="border p-2 rounded w-full"
-                min="0"
-                step="10000"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={saveSettings}
-            disabled={saving || !user?.telegram_id}
-            className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
-          </button>
-        </div>
-      </div>
-    </DashboardLayout>
-  );
+        </DashboardLayout>
+    );
 } 

@@ -1,122 +1,145 @@
-# پنل مدیریت سرورهای Hetzner
+# Hetzner Bot
 
-پنل مدیریت سرورهای Hetzner با قابلیت اتصال به تلگرام و سیستم اعلان‌رسانی هوشمند
+A Telegram bot and web application for managing Hetzner servers.
 
-## امکانات
+## Features
 
-### وب‌سایت
-- ثبت‌نام و احراز هویت با شماره موبایل
-- خرید سرور با انتخاب نوع، لوکیشن و سیستم‌عامل
-- مدیریت سرورها (روشن/خاموش کردن، تغییر IP)
-- مشاهده آمار و مانیتورینگ سرور
-- سیستم تیکتینگ و پشتیبانی
-- مدیریت موجودی و تراکنش‌ها
-- درگاه پرداخت زرین‌پال
-- اتصال به تلگرام و دریافت نوتیفیکیشن
+### User Management
+- ثبت نام و احراز هویت کاربران
+- تایید شماره موبایل با OTP
+- اتصال اکانت تلگرام
+- سطوح دسترسی کاربران (ادمین و کاربر عادی)
+- مدیریت تنظیمات اعلان‌ها
 
-### ربات تلگرام
-- اتصال به حساب کاربری از طریق پنل
-- مشاهده وضعیت سرورها با دستور /status
-- مشاهده موجودی با دستور /balance
-- دریافت نوتیفیکیشن‌های سیستم
+### مدیریت سرور
+- ایجاد سرور جدید
+- مشاهده لیست سرورها
+- مدیریت وضعیت سرورها (روشن/خاموش/ریستارت)
+- تغییر IP سرور
+- مانیتورینگ منابع سرور (CPU, RAM, Disk)
+- نمایش لاگ‌های سیستمی
 
-## تکنولوژی‌ها
-- Backend: FastAPI
-- Frontend: Next.js + Tailwind CSS
-- Database: PostgreSQL
-- Cache: Redis
-- Bot: aiogram
-- SMS: SMS.ir
-- Payment: Zarinpal
+### مدیریت مالی
+- محاسبه موجودی از تراکنش‌ها
+- شارژ حساب
+- مشاهده تراکنش‌ها
+- محاسبه خودکار هزینه‌ها
 
-## پیش‌نیازها
-- Docker و Docker Compose
-- Node.js نسخه 18 یا بالاتر
-- Python 3.9 یا بالاتر
-- PostgreSQL
-- Redis
+### پشتیبانی
+- ارسال تیکت پشتیبانی
+- آپلود فایل
+- مشاهده وضعیت تیکت‌ها
+
+### پنل ادمین
+- مدیریت کاربران
+- مشاهده آمار سیستم
+- مدیریت تیکت‌ها
+- تنظیمات سیستم
+
+## دستورات ربات
+
+```
+/start - شروع کار با ربات
+/help - راهنمای دستورات
+/register - ثبت نام
+/profile - مشاهده پروفایل
+/balance - مشاهده موجودی
+/servers - لیست سرورها
+/create_server - ایجاد سرور جدید
+/support - ارسال تیکت پشتیبانی
+/settings - تنظیمات
+
+# دستورات ادمین
+/admin - پنل مدیریت
+/promote <telegram_id> - ارتقاء کاربر به ادمین
+/demote <telegram_id> - حذف دسترسی ادمین
+```
 
 ## نصب و راه‌اندازی
 
-### 1. کلون کردن پروژه
-git clone https://github.com/your-username/hetzner-panel.git
-cd hetzner-panel
+1. کلون کردن مخزن:
+```bash
+git clone https://github.com/yourusername/hetzner_bot.git
+cd hetzner_bot
+```
 
-### 2. تنظیم متغیرهای محیطی
+2. نصب وابستگی‌ها:
+```bash
+pip install -r requirements.txt
+```
 
-فایل .env را در پوشه اصلی پروژه ایجاد کنید:
+3. کپی فایل تنظیمات:
+```bash
+cp .env.example .env
+```
 
-    # Database
-    POSTGRES_DB=hetzner_panel
-    POSTGRES_USER=postgres
-    POSTGRES_PASSWORD=your_password
+4. ویرایش فایل `.env` و تنظیم مقادیر مورد نیاز:
+```env
+BOT_TOKEN=your_telegram_bot_token
+HETZNER_API_KEY=your_hetzner_api_key
+DATABASE_URL=postgresql://user:pass@localhost/dbname
+REDIS_URL=redis://localhost
+```
 
-    # Redis
-    REDIS_HOST=redis
-    REDIS_PORT=6379
+5. اجرای مایگریشن‌های دیتابیس:
+```bash
+alembic upgrade head
+```
 
-    # API
-    JWT_SECRET=your_jwt_secret
-    HETZNER_API_TOKEN=your_hetzner_token
+6. اجرای برنامه:
+```bash
+# اجرای ربات تلگرام
+python bot.py
 
-    # SMS
-    SMS_API_KEY=your_sms_api_key
+# اجرای وب اپلیکیشن
+uvicorn api.main:app --reload
 
-    # Payment
-    ZARINPAL_MERCHANT=your_merchant_id
+# اجرای ورکر مانیتورینگ
+python monitoring_worker.py
 
-    # Telegram Bot
-    TELEGRAM_BOT_TOKEN=your_bot_token
-
-فایل .env.local را در پوشه frontend ایجاد کنید:
-
-    NEXT_PUBLIC_API_URL=http://localhost:8000
-    NEXT_PUBLIC_SOCKET_URL=ws://localhost:8000/ws
-
-### 3. نصب پکیج‌های مورد نیاز
-
-در پوشه frontend:
-    cd frontend
-    npm install
-
-### 4. اجرای migration ها
-    docker-compose run api python -m aerich upgrade
-
-### 5. اجرای پروژه با Docker
-    docker-compose up -d
-
-پروژه روی پورت‌های زیر در دسترس خواهد بود:
-- Frontend: http://localhost:3000
-- API: http://localhost:8000
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
+# اجرای ورکر بیلینگ
+python billing_worker.py
+```
 
 ## ساختار پروژه
 
-    .
-    ├── api/                    # بک‌اند FastAPI
-    │   ├── routers/           # API endpoints
-    │   └── utils/             # توابع کمکی
-    ├── frontend/              # فرانت‌اند Next.js
-    │   ├── components/        # کامپوننت‌های React
-    │   ├── pages/            # صفحات
-    │   └── contexts/         # Context های React
-    ├── bot/                   # ربات تلگرام
-    │   ├── handlers/         # هندلرهای دستورات
-    │   └── middlewares/      # میدلورهای ربات
-    ├── database/             # مدل‌های دیتابیس
-    │   └── models.py
-    └── docker-compose.yml
+```
+hetzner_bot/
+├── api/                    # FastAPI backend
+│   ├── routers/           # API endpoints
+│   ├── models.py          # Pydantic models
+│   └── main.py           
+├── bot/                   # Telegram bot
+│   ├── handlers/         
+│   └── main.py
+├── database/              # Database models and config
+├── repositories/          # Data access layer
+├── utils/                 # Utility functions
+├── frontend/              # Next.js frontend
+├── alembic/               # Database migrations
+├── tests/                 # Test files
+└── workers/               # Background workers
+```
 
-## توسعه
+## تکنولوژی‌ها
 
-### اجرای تست‌ها
-    # API tests
-    docker-compose run api pytest
+- Python 3.9+
+- FastAPI
+- SQLAlchemy
+- python-telegram-bot
+- Redis
+- PostgreSQL
+- Next.js
+- TailwindCSS
 
-    # Frontend tests
-    cd frontend
-    npm test
+## مشارکت
 
-### اضافه کردن migration جدید
-    docker-compose run api python -m aerich migrate
+1. Fork کردن مخزن
+2. ایجاد برنچ برای تغییرات
+3. Commit کردن تغییرات
+4. Push به برنچ
+5. ایجاد Pull Request
+
+## لایسنس
+
+MIT

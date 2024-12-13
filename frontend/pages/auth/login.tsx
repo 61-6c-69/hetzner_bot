@@ -1,158 +1,104 @@
 import { useState } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
+import { endpoints } from '@/services/api';
+import { toast } from 'react-toastify';
 
 export default function Login() {
-    const router = useRouter();
     const { login } = useAuth();
     const [phone, setPhone] = useState('');
     const [code, setCode] = useState('');
     const [step, setStep] = useState<'phone' | 'code'>('phone');
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSendCode = async (e: React.FormEvent) => {
+    const handleRequestOTP = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
 
         try {
-            const res = await fetch('/api/auth/verify-phone', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone })
-            });
-            
-            const data = await res.json();
-            
-            if (!res.ok) {
-                throw new Error(data.detail || 'خطا در ارسال کد');
-            }
-
+            await endpoints.auth.requestOTP(phone);
             setStep('code');
-        } catch (err) {
-            setError(err.message);
+            toast.success('کد تایید ارسال شد');
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'خطا در ارسال کد تایید');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyCode = async (e: React.FormEvent) => {
+    const handleVerifyOTP = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
 
         try {
-            const res = await fetch('/api/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, code })
-            });
-
-            const data = await res.json();
-            
-            if (!res.ok) {
-                throw new Error(data.detail || 'کد وارد شده نامعتبر است');
-            }
-
+            const { data } = await endpoints.auth.verifyOTP(phone, code);
             await login(data.access_token);
-            router.push('/dashboard');
-        } catch (err) {
-            setError(err.message);
+            toast.success('ورود موفقیت‌آمیز');
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || 'کد وارد شده نامعتبر است');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        ورود به سیستم
-                    </h2>
-                </div>
-
-                {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <span className="block sm:inline">{error}</span>
-                    </div>
-                )}
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
+                <h1 className="text-2xl font-bold text-center mb-6">ورود به حساب کاربری</h1>
 
                 {step === 'phone' ? (
-                    <form className="mt-8 space-y-6" onSubmit={handleSendCode}>
+                    <form onSubmit={handleRequestOTP} className="space-y-4">
                         <div>
-                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700">
                                 شماره موبایل
                             </label>
                             <input
-                                id="phone"
-                                name="phone"
                                 type="tel"
-                                required
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 placeholder="09123456789"
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                dir="ltr"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                required
+                                pattern="^(\+98|0)?9\d{9}$"
                             />
                         </div>
-
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                                loading ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
+                            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                         >
-                            {loading ? 'در حال ارسال...' : 'ارسال کد تایید'}
+                            {loading ? 'در حال ارسال...' : 'دریافت کد تایید'}
                         </button>
                     </form>
                 ) : (
-                    <form className="mt-8 space-y-6" onSubmit={handleVerifyCode}>
+                    <form onSubmit={handleVerifyOTP} className="space-y-4">
                         <div>
-                            <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700">
                                 کد تایید
                             </label>
                             <input
-                                id="code"
-                                name="code"
                                 type="text"
-                                required
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
-                                placeholder="12345"
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                dir="ltr"
+                                placeholder="کد 6 رقمی"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                required
+                                pattern="\d{6}"
+                                maxLength={6}
                             />
                         </div>
-
-                        <div className="flex items-center justify-between">
-                            <button
-                                type="button"
-                                onClick={() => setStep('phone')}
-                                className="text-sm text-blue-600 hover:text-blue-500"
-                            >
-                                تغییر شماره موبایل
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSendCode}
-                                disabled={loading}
-                                className="text-sm text-blue-600 hover:text-blue-500"
-                            >
-                                ارسال مجدد کد
-                            </button>
-                        </div>
-
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                                loading ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
+                            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                             {loading ? 'در حال بررسی...' : 'ورود'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStep('phone')}
+                            className="w-full text-sm text-blue-600 hover:text-blue-500"
+                        >
+                            تغییر شماره موبایل
                         </button>
                     </form>
                 )}

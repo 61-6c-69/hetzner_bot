@@ -1,91 +1,88 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from utils.hetzner_api import hetzner
-from config import DATABASE_URL
+from database.database import async_session_maker
+from utils.server_monitor import ServerMonitor
+from sqlalchemy import select
+from database.models import Server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-async def init():
-    await Tortoise.init(
-        db_url=DATABASE_URL,
-        modules={'models': ['database.models']}
-    )
-
-
-async def collect_server_stats():
-    """جمع‌آوری آمار از سرورها"""
+async def monitor_servers():
+    """مانیتورینگ مداوم سرورها"""
     while True:
         try:
-            # دریافت همه سرورهای فعال
-            servers = await Server.filter(status='running')
+            async with async_session_maker() as db:
+                monitor = ServerMonitor(db)
+                
+                # دریافت همه سرورهای فعال
+                result = await db.execute(
+                    select(Server).where(Server.status == 'running')
+                )
+                active_servers = result.scalars().all()
 
-            for server in servers:
-                try:
-                    # دریافت آمار از Hetzner API
-                    stats = await hetzner.get_server_metrics(server.hetzner_id)
+                for server in active_servers:
+                    try:
+                        # جمع‌آوری متریک‌ها
+                        metrics = await monitor.collect_metrics(server.id)
+                        if not metrics:
+                            continue
+                            
+                        # تحلیل متریک‌ها و شناسایی مشکلات
+                        issues = await monitor.analyze_metrics(server.id, metrics)
+                        
+                        # ارسال اعلان برای مشکلات
+                        await monitor.notify_issues(server.id, issues)
+                        
+                        # تهیه خلاصه عملکرد روزانه (یکبار در روز)
+                        if datetime.utcnow().hour == 0:  # در ابتدای هر روز
+                            summary = await monitor.get_performance_summary(
+                                server.id,
+                                period=timedelta(days=1)
+                            )
+                            logger.info(f"خلاصه عملکرد روزانه سرور {server.id}: {summary}")
 
-                    # ذخیره در دیتابیس
-                    await ServerStats.create(
-                        server=server,
-                        cpu_usage=stats['cpu'],
-                        memory_usage=stats['memory'],
-                        disk_usage=stats['disk'],
-                        network_in=stats['network_in'],
-                        network_out=stats['network_out']
-                    )
-
-                    # بررسی هشدارها
-                    if stats['cpu'] > 90:
-                        await notify_high_usage(server, 'CPU', stats['cpu'])
-                    if stats['memory'] > 90:
-                        await notify_high_usage(server, 'Memory', stats['memory'])
-                    if stats['disk'] > 90:
-                        await notify_high_usage(server, 'Disk', stats['disk'])
-
-                except Exception as e:
-                    logger.error(f"Error collecting stats for server {server.id}: {e}")
-
-            # پاک کردن آمار قدیمی (بیشتر از 30 روز)
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            await ServerStats.filter(timestamp__lt=thirty_days_ago).delete()
+                    except Exception as e:
+                        logger.error(f"خطا در مانیتورینگ سرور {server.id}: {str(e)}")
 
         except Exception as e:
-            logger.error(f"Error in monitoring loop: {e}")
+            logger.error(f"خطا در چرخه مانیتورینگ: {str(e)}")
 
-        await asyncio.sleep(30)  # هر 30 ثانیه
+        finally:
+            # انتظار 5 دقیقه تا چرخه بعدی
+            await asyncio.sleep(300)
 
+async def cleanup_old_metrics():
+    """پاک کردن متریک‌های قدیمی"""
+    while True:
+        try:
+            async with async_session_maker() as db:
+                # حذف متریک‌های قدیمی‌تر از 30 روز
+                thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+                await db.execute(
+                    select(ServerStats)
+                    .where(ServerStats.timestamp < thirty_days_ago)
+                    .delete()
+                )
+                await db.commit()
+                
+        except Exception as e:
+            logger.error(f"خطا در پاک‌سازی متریک‌های قدیمی: {str(e)}")
+            
+        finally:
+            # اجرای پاک‌سازی هر 24 ساعت
+            await asyncio.sleep(24 * 60 * 60)
 
-async def notify_high_usage(server, resource, value):
-    """ارسال نوتیفیکیشن برای مصرف بالا"""
-    from bot import notify_admins
-
-    user = await server.user
-    message = (
-        f"⚠️ <b>هشدار مصرف بالا</b>\n\n"
-        f"🖥 سرور: {server.name}\n"
-        f"📊 {resource}: {value}%\n"
-        f"👤 کاربر: {user.first_name}"
+async def main():
+    """تابع اصلی برای اجرای همه وظایف مانیتورینگ"""
+    logger.info("شروع سرویس مانیتورینگ...")
+    
+    # اجرای همزمان مانیتورینگ و پاک‌سازی
+    await asyncio.gather(
+        monitor_servers(),
+        cleanup_old_metrics()
     )
 
-    await notify_admins(message)
-
-    # اگر کاربر تلگرام داشت به او هم اطلاع بده
-    if user.telegram_id:
-        from bot import bot
-        try:
-            await bot.send_message(
-                user.telegram_id,
-                message,
-                parse_mode='HTML'
-            )
-        except Exception as e:
-            logger.error(f"Failed to notify user {user.id}: {e}")
-
-
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(init())
-    loop.run_until_complete(collect_server_stats())
+    asyncio.run(main())

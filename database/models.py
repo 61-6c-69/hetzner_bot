@@ -37,7 +37,6 @@ class User(Base):
     last_name = Column(String(50), nullable=True)
     password_hash = Column(String(128))
     role = Column(SQLEnum(UserRole), default=UserRole.USER)
-    balance = Column(Float, default=0)
     telegram_id = Column(Integer, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

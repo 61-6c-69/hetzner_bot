@@ -1,9 +1,9 @@
 from database.models import Ticket, User, Server, Transaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.notifications import notify_user
-from typing import Optional, Sequence
+from typing import Optional, Sequence, List, Tuple, Dict, Any
 from sqlalchemy.orm import joinedload
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from datetime import datetime
 
 
@@ -11,12 +11,39 @@ class AdminRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_tickets(self) -> Sequence[Ticket]:
-        """Get all tickets with user info"""
-        result = await self.db.execute(
-            select(Ticket).join(User)
-        )
-        return result.scalars().all()
+    async def get_all_tickets(self, page: int = 1, per_page: int = 10, search: Optional[str] = None, sort_by: Optional[str] = None, sort_order: str = 'asc') -> Tuple[List[Ticket], int]:
+        """Get paginated list of tickets with search and sorting"""
+        query = select(Ticket)
+
+        # Apply search filter
+        if search:
+            query = query.filter(
+                or_(
+                    Ticket.subject.ilike(f"%{search}%"),
+                    Ticket.message.ilike(f"%{search}%")
+                )
+            )
+
+        # Get total count
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.db.scalar(count_query)
+
+        # Apply sorting
+        if sort_by:
+            column = getattr(Ticket, sort_by, None)
+            if column:
+                query = query.order_by(
+                    column.desc() if sort_order == 'desc' else column.asc()
+                )
+
+        # Apply pagination
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+        # Execute query
+        result = await self.db.execute(query)
+        tickets = result.scalars().all()
+
+        return tickets, total
 
     async def get_ticket(self, ticket_id: int) -> Optional[Ticket]:
         """Get a ticket by ID"""
@@ -134,24 +161,91 @@ class AdminRepository:
         )
         return result.scalar_one()
 
-    async def get_users(self, skip: int = 0, limit: int = 100) -> Sequence[User]:
-        """Get paginated list of users"""
-        result = await self.db.execute(
-            select(User)
-            .offset(skip)
-            .limit(limit)
-        )
-        return result.scalars().all()
+    async def get_users(
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = 'asc'
+    ) -> Tuple[List[User], int]:
+        """Get paginated list of users with search and sorting"""
+        query = select(User)
 
-    async def get_all_servers(self, skip: int = 0, limit: int = 100) -> Sequence[Server]:
-        """Get paginated list of all servers"""
-        result = await self.db.execute(
-            select(Server)
-            .options(joinedload(Server.user))
-            .offset(skip)
-            .limit(limit)
-        )
-        return result.scalars().all()
+        # Apply search filter
+        if search:
+            query = query.filter(
+                or_(
+                    User.username.ilike(f"%{search}%"),
+                    User.email.ilike(f"%{search}%"),
+                    User.phone.ilike(f"%{search}%"),
+                    User.first_name.ilike(f"%{search}%"),
+                    User.last_name.ilike(f"%{search}%")
+                )
+            )
+
+        # Get total count
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.db.scalar(count_query)
+
+        # Apply sorting
+        if sort_by:
+            column = getattr(User, sort_by, None)
+            if column:
+                query = query.order_by(
+                    column.desc() if sort_order == 'desc' else column.asc()
+                )
+
+        # Apply pagination
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+        # Execute query
+        result = await self.db.execute(query)
+        users = result.scalars().all()
+
+        return users, total
+
+    async def get_all_servers(
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = 'asc'
+    ) -> Tuple[List[Server], int]:
+        """Get paginated list of servers with search and sorting"""
+        query = select(Server)
+
+        # Apply search filter
+        if search:
+            query = query.filter(
+                or_(
+                    Server.name.ilike(f"%{search}%"),
+                    Server.ip.ilike(f"%{search}%"),
+                    Server.type.ilike(f"%{search}%")
+                )
+            )
+
+        # Get total count
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.db.scalar(count_query)
+
+        # Apply sorting
+        if sort_by:
+            column = getattr(Server, sort_by, None)
+            if column:
+                query = query.order_by(
+                    column.desc() if sort_order == 'desc' else column.asc()
+                )
+
+        # Apply pagination
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+        # Execute query
+        result = await self.db.execute(query)
+        servers = result.scalars().all()
+
+        return servers, total
 
     async def get_ticket_user(self, ticket_id: int) -> Optional[User]:
         """Get the user who created the ticket"""
@@ -212,3 +306,44 @@ class AdminRepository:
             'total_transactions': row.count if row else 0,
             'total_amount': float(row.total_amount if row and row.total_amount else 0)
         }
+
+    async def get_all_transactions(
+        self,
+        page: int = 1,
+        per_page: int = 10,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = 'asc'
+    ) -> Tuple[List[Transaction], int]:
+        """Get paginated list of transactions with search and sorting"""
+        query = select(Transaction)
+
+        # Apply search filter
+        if search:
+            query = query.filter(
+                or_(
+                    Transaction.description.ilike(f"%{search}%"),
+                    Transaction.payment_id.ilike(f"%{search}%")
+                )
+            )
+
+        # Get total count
+        count_query = select(func.count()).select_from(query.subquery())
+        total = await self.db.scalar(count_query)
+
+        # Apply sorting
+        if sort_by:
+            column = getattr(Transaction, sort_by, None)
+            if column:
+                query = query.order_by(
+                    column.desc() if sort_order == 'desc' else column.asc()
+                )
+
+        # Apply pagination
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+        # Execute query
+        result = await self.db.execute(query)
+        transactions = result.scalars().all()
+
+        return transactions, total

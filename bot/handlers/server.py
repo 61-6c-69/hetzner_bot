@@ -7,6 +7,37 @@ from aiogram import types
 from ..main import dp
 
 
+@dp.message_handler(commands=['create_server'])
+async def cmd_create_server(message: types.Message):
+    """Create a new server command handler"""
+    async for db in get_db():
+        user_repo = UserRepository(db)
+        price_repo = PriceRepository(db)
+        
+        user = await user_repo.get_by_telegram_id(message.from_user.id)
+        if not user:
+            await message.reply("لطفا ابتدا حبت نام کنید.")
+            return
+
+        # Get user's balance
+        balance = await user_repo.get_balance(user.id)
+        
+        # Get minimum server price
+        min_price = await price_repo.get_minimum_price()
+        
+        if balance < min_price:
+            await message.reply(
+                f"موجودی شما برای ایجاد سرور کافی نیست.\n"
+                f"💰 حداقل موجودی مورد نیاز: {min_price:,} تومان\n"
+                f"💰 موجودی فعلی: {balance:,} تومان\n"
+                "لطفا ابتدا حساب خود را شارژ کنید."
+            )
+            return
+
+        # Show server creation menu
+        await show_server_creation_menu(message)
+
+
 @dp.message_handler(lambda message: message.text == "🖥 سرور جدید")
 async def new_server(message: types.Message):
     async for db in get_db():

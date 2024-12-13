@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException
 from datetime import datetime, timedelta
 from database.database import get_db
-from database.models import User
+from database.models import User, UserRole
 from jose import JWTError, jwt
 from sqlalchemy import select
 from fastapi import status
@@ -39,14 +39,31 @@ async def get_current_user(
     return user
 
 
-async def get_current_admin(user: User = Depends(get_current_user)) -> User:
-    """دریافت کاربر ادمین فعلی"""
-    if user.id not in ADMIN_IDS:
+def is_admin_role(role: str) -> bool:
+    """Check if the given role is admin"""
+    return role == UserRole.ADMIN
+
+
+async def check_admin_access(user_id: int, db: AsyncSession) -> bool:
+    """Check if user has admin access"""
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    return user is not None and is_admin_role(user.role)
+
+
+async def get_current_admin_user(
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+) -> User:
+    """Get current user with admin check"""
+    if not is_admin_role(current_user.role):
         raise HTTPException(
-            status_code=403,
-            detail="شما دسترسی به این بخش را ندارید"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
         )
-    return user
+    return current_user
 
 
 def create_access_token(data: dict) -> str:

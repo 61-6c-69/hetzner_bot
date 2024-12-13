@@ -3,28 +3,39 @@ from repositories.ticket_repository import TicketRepository
 from repositories.admin_repository import AdminRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.notifications import notify_user
+from api.schemas import NotificationCreate
 from utils.auth import get_current_admin
 from database.database import get_db
 from database.models import User
-from pydantic import BaseModel
 from api import schemas
-from typing import List
+from utils.auth import get_current_admin_user
 
 router = APIRouter()
 
 
-class NotificationCreate(BaseModel):
-    message: str
-
-
-@router.get("/tickets")
+@router.get("/tickets", response_model=schemas.PaginatedTickets)
 async def list_tickets(
+    pagination: schemas.PaginationParams = Depends(),
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """لیست همه تیکت‌ها"""
-    repo = AdminRepository(db)
-    return await repo.get_all_tickets()
+    repo = TicketRepository(db)
+    tickets, total = await repo.get_all(
+        page=pagination.page,
+        per_page=pagination.per_page,
+        cache_key=f"admin_tickets_{pagination.search}_{pagination.sort_by}_{pagination.sort_order}"
+    )
+    
+    total_pages = (total + pagination.per_page - 1) // pagination.per_page
+    
+    return {
+        "items": tickets,
+        "total": total,
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "total_pages": total_pages
+    }
 
 
 @router.post("/tickets/{ticket_id}/reply")
@@ -69,26 +80,78 @@ async def send_notification(
     }
 
 
-@router.get("/users", response_model=List[schemas.User])
-async def list_users(
+@router.get("/users", response_model=schemas.PaginatedUsers)
+async def get_users(
     skip: int = 0,
-    limit: int = 100,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
 ):
+    """Get list of users (admin only)"""
     repo = AdminRepository(db)
-    return await repo.get_users(skip, limit)
+    return await repo.get_users(skip=skip, limit=limit)
 
 
-@router.get("/servers", response_model=List[schemas.Server])
-async def list_all_servers(
+@router.get("/servers", response_model=schemas.PaginatedServers)
+async def get_servers(
     skip: int = 0,
-    limit: int = 100,
-    admin: User = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_db)
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
 ):
+    """Get list of servers (admin only)"""
     repo = AdminRepository(db)
-    return await repo.get_all_servers(skip, limit)
+    return await repo.get_servers(skip=skip, limit=limit)
+
+
+@router.get("/transactions", response_model=schemas.PaginatedTransactions)
+async def get_transactions(
+    skip: int = 0,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
+):
+    """Get list of transactions (admin only)"""
+    repo = AdminRepository(db)
+    return await repo.get_transactions(skip=skip, limit=limit)
+
+
+@router.post("/users/{user_id}/ban")
+async def ban_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
+):
+    """Ban a user (admin only)"""
+    repo = AdminRepository(db)
+    await repo.ban_user(user_id)
+    return {"message": "User banned successfully"}
+
+
+@router.post("/users/{user_id}/unban")
+async def unban_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
+):
+    """Unban a user (admin only)"""
+    repo = AdminRepository(db)
+    await repo.unban_user(user_id)
+    return {"message": "User unbanned successfully"}
+
+
+@router.get("/stats")
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    current_admin: schemas.User = Depends(get_current_admin_user)
+):
+    """Get system statistics (admin only)"""
+    repo = AdminRepository(db)
+    return {
+        "users": await repo.get_user_stats(),
+        "servers": await repo.get_server_stats(),
+        "transactions": await repo.get_transaction_stats()
+    }
 
 
 @router.post("/servers/{server_id}/action")
