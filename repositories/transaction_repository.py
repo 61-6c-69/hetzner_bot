@@ -1,11 +1,13 @@
 from database.models import Transaction, TransactionType, TransactionStatus, User
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Tuple
-from sqlalchemy import select, and_, or_
-from datetime import datetime
+from sqlalchemy import select, and_, or_, func
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
 from decimal import Decimal
+
+from repositories.base import BaseRepository
 
 
 class TransactionManager:
@@ -146,8 +148,10 @@ class TransactionManager:
         return transaction, new_balance
 
 
-class TransactionRepository:
+class TransactionRepository(BaseRepository[User]):
     def __init__(self, db: AsyncSession):
+        super().__init__(User, db)
+        self.cache_ttl = timedelta(minutes=30)
         self.db = db
 
     async def get_user_transactions(self, user_id: int) -> List[Transaction]:

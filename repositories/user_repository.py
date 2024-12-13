@@ -1,4 +1,4 @@
-from database.models import User, Transaction, Base, NotificationSettings
+from database.models import User, Transaction, Base, NotificationSettings, UserRole
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, TypeVar, Tuple
 from datetime import datetime, timedelta

@@ -74,9 +74,10 @@ export const endpoints = {
     admin: {
         // Users
         users: {
-            list: () => api.get('/admin/users'),
-            block: (id: number) => api.post(`/admin/users/${id}/block`),
-            unblock: (id: number) => api.post(`/admin/users/${id}/unblock`),
+            list: (params: { page?: number; per_page?: number; search?: string; sort_by?: string; sort_order?: 'asc' | 'desc' }) => 
+                api.get('/admin/users', { params }),
+            block: (id: number) => api.post(`/admin/users/${id}/ban`),
+            unblock: (id: number) => api.post(`/admin/users/${id}/unban`),
             delete: (id: number) => api.delete(`/admin/users/${id}`),
         },
 

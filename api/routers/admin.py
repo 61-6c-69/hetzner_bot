@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from repositories.transaction_repository import TransactionRepository
+from repositories.server_repository import ServerRepository
 from repositories.ticket_repository import TicketRepository
 from repositories.admin_repository import AdminRepository
+from repositories.user_repository import UserRepository
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.auth import get_current_admin_user
 from utils.notifications import notify_user
 from api.schemas import NotificationCreate
-from utils.auth import get_current_admin
 from database.database import get_db
 from database.models import User
 from api import schemas
-from utils.auth import get_current_admin_user
 
 router = APIRouter()
 
@@ -16,7 +18,7 @@ router = APIRouter()
 @router.get("/tickets", response_model=schemas.PaginatedTickets)
 async def list_tickets(
     pagination: schemas.PaginationParams = Depends(),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """لیست همه تیکت‌ها"""
@@ -42,7 +44,7 @@ async def list_tickets(
 async def reply_ticket(
     ticket_id: int,
     response: str,
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """پاسخ به تیکت"""
@@ -67,7 +69,7 @@ async def reply_ticket(
 @router.post("/notifications")
 async def send_notification(
     data: NotificationCreate,
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """ارسال اعلان به همه کاربران"""
@@ -100,8 +102,8 @@ async def get_servers(
     current_admin: schemas.User = Depends(get_current_admin_user)
 ):
     """Get list of servers (admin only)"""
-    repo = AdminRepository(db)
-    return await repo.get_servers(skip=skip, limit=limit)
+    repo = ServerRepository(db)
+    return await repo.get_all(skip=skip, limit=limit)
 
 
 @router.get("/transactions", response_model=schemas.PaginatedTransactions)
@@ -112,8 +114,8 @@ async def get_transactions(
     current_admin: schemas.User = Depends(get_current_admin_user)
 ):
     """Get list of transactions (admin only)"""
-    repo = AdminRepository(db)
-    return await repo.get_transactions(skip=skip, limit=limit)
+    repo = TransactionRepository(db)
+    return await repo.get_all(skip=skip, limit=limit)
 
 
 @router.post("/users/{user_id}/ban")
@@ -123,8 +125,8 @@ async def ban_user(
     current_admin: schemas.User = Depends(get_current_admin_user)
 ):
     """Ban a user (admin only)"""
-    repo = AdminRepository(db)
-    await repo.ban_user(user_id)
+    repo = UserRepository(db)
+    await repo.deactivate(user_id)
     return {"message": "User banned successfully"}
 
 
@@ -135,8 +137,8 @@ async def unban_user(
     current_admin: schemas.User = Depends(get_current_admin_user)
 ):
     """Unban a user (admin only)"""
-    repo = AdminRepository(db)
-    await repo.unban_user(user_id)
+    repo = UserRepository(db)
+    await repo.activate(user_id)
     return {"message": "User unbanned successfully"}
 
 
@@ -159,7 +161,7 @@ async def server_action(
     server_id: int,
     action: schemas.ServerAction,
     background_tasks: BackgroundTasks,
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     repo = AdminRepository(db)
