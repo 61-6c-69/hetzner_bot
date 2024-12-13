@@ -101,6 +101,14 @@ services:
     depends_on:
       - api
 
+  adminer:
+    image: adminer
+    container_name: adminer
+    ports:
+      - "${ADMINER_PORT}:8080"
+    depends_on:
+      - db
+
 volumes:
   postgres_data:
   redis_data:
