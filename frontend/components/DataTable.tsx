@@ -2,30 +2,7 @@ import { ReactNode } from 'react';
 import Pagination from './Pagination';
 import SearchInput from './SearchInput';
 import SortButton from './SortButton';
-
-interface Column<T> {
-    key: keyof T;
-    label: string;
-    sortable?: boolean;
-    render?: (item: T) => ReactNode;
-}
-
-interface DataTableProps<T> {
-    columns: Column<T>[];
-    data: T[];
-    totalItems: number;
-    currentPage: number;
-    totalPages: number;
-    onPageChange: (page: number) => void;
-    onSearch?: (query: string) => void;
-    onSort?: (field: string) => void;
-    currentSort?: {
-        field: string;
-        order: 'asc' | 'desc';
-    };
-    isLoading?: boolean;
-    emptyMessage?: string;
-}
+import type { Column, DataTableProps } from '@/types/datatable';
 
 export default function DataTable<T>({
     columns,

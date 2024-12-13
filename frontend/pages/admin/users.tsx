@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { endpoints } from '@/services/api';
 import AdminLayout from '@/components/AdminLayout';
 import DataTable from '@/components/DataTable';
+import type { Column } from '@/types/datatable';
 
 export default function AdminUsers() {
     const [users, setUsers] = useState<User[]>([]);
@@ -40,7 +41,7 @@ export default function AdminUsers() {
             setTotalItems(response.data.total);
             setTotalPages(response.data.total_pages);
         } catch (error: any) {
-            toast.error(error.response?.data?.detail || 'خطا در دریافت لیست کاربران');
+            toast.error(error.response?.data?.detail || 'خطا در دریافت لیست کاربرا��');
         } finally {
             setLoading(false);
         }
@@ -70,7 +71,7 @@ export default function AdminUsers() {
         }
     };
 
-    const columns = [
+    const columns: Column<User>[] = [
         { key: 'id', label: 'شناسه', sortable: true },
         { key: 'username', label: 'نام کاربری', sortable: true },
         { key: 'email', label: 'ایمیل', sortable: true },
