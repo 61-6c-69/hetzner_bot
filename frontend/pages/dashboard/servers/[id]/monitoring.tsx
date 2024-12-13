@@ -13,7 +13,8 @@ import {
     LineElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    ChartOptions
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -27,7 +28,7 @@ ChartJS.register(
     Legend
 );
 
-const chartOptions = {
+const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     plugins: {
         legend: {
@@ -36,10 +37,18 @@ const chartOptions = {
     },
     scales: {
         y: {
+            type: 'linear' as const,
+            display: true,
+            position: 'left' as const,
             beginAtZero: true,
             max: 100,
             ticks: {
-                callback: (value: number) => `${value}%`
+                callback: function(value) {
+                    if (typeof value === 'number') {
+                        return `${value}%`;
+                    }
+                    return value;
+                }
             }
         }
     }
@@ -178,9 +187,17 @@ export default function ServerMonitoring() {
                                 ...chartOptions,
                                 scales: {
                                     y: {
+                                        type: 'linear' as const,
+                                        display: true,
+                                        position: 'left' as const,
                                         beginAtZero: true,
                                         ticks: {
-                                            callback: (value: number) => `${value.toFixed(2)} MB/s`
+                                            callback: function(value) {
+                                                if (typeof value === 'number') {
+                                                    return `${value.toFixed(2)} MB/s`;
+                                                }
+                                                return value;
+                                            }
                                         }
                                     }
                                 }
