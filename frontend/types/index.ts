@@ -14,6 +14,13 @@ export interface User {
     telegram_id?: number;
 }
 
+export interface JWTPayload {
+  sub: string
+  role: string
+  exp: number
+  iat: number
+}
+
 export interface Server {
     id: number;
     user_id: number;

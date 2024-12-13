@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtDecode } from 'jwt-decode'
+import { JWTPayload } from '@/types';
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')
@@ -25,7 +26,7 @@ export function middleware(request: NextRequest) {
     }
     
     try {
-      const decoded = jwtDecode(token.value)
+      const decoded = jwtDecode<JWTPayload>(token.value)
       if (decoded.role !== 'admin') {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
