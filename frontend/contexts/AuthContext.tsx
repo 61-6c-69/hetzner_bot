@@ -9,6 +9,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -16,14 +17,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const login = async (token: string) => {
-        Cookies.set('token', token, { expires: 30 });
-        await checkAuth();
-        router.push('/dashboard');
+        try {
+            Cookies.set('token', token, { expires: 30 });
+            await checkAuth();
+            router.push('/dashboard');
+            setError(null);
+        } catch (err) {
+            setError('خطا در ورود به سیستم');
+            console.error('Login error:', err);
+        }
     };
 
     const logout = () => {
         Cookies.remove('token');
         setUser(null);
+        setError(null);
         router.push('/auth/login');
     };
 
@@ -37,8 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const { data } = await endpoints.user.me();
             setUser(data);
-        } catch (error) {
-            console.error('Auth check failed:', error);
+            setError(null);
+        } catch (err) {
+            console.error('Auth check failed:', err);
+            setError('خطا در بررسی وضعیت احراز هویت');
             logout();
         } finally {
             setLoading(false);
@@ -49,8 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const { data } = await endpoints.user.me();
             setUser(data);
-        } catch (error) {
-            console.error('Failed to refresh user:', error);
+            setError(null);
+        } catch (err) {
+            console.error('Failed to refresh user:', err);
+            setError('خطا در به‌روزرسانی اطلاعات کاربر');
         }
     };
 
@@ -59,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, refreshUser }}>
+        <AuthContext.Provider value={{ user, login, logout, loading, error, isAdmin, refreshUser }}>
             {!loading && children}
         </AuthContext.Provider>
     );
