@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 
 export interface Column<T> {
-    key: keyof T;
+    key: keyof T | string;
     label: string;
     sortable?: boolean;
     render?: (item: T) => ReactNode;
