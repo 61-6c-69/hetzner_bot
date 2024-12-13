@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiSearch } from 'react-icons/fi';
-import debounce from 'lodash/debounce';
+import debounce from 'lodash.debounce';
 
 interface SearchInputProps {
     onSearch: (query: string) => void;

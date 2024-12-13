@@ -4,15 +4,9 @@ import DashboardLayout from '@/components/DashboardLayout';
 import ServerCard from '@/components/ServerCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { endpoints } from '@/services/api';
-import { Server } from '@/types';
+import { Server, DashboardStats } from '@/types';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
-
-interface DashboardStats {
-    total_servers: number;
-    active_servers: number;
-    total_spent: number;
-}
 
 export default function Dashboard() {
     const { user } = useAuth();

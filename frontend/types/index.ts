@@ -18,13 +18,20 @@ export interface Server {
     id: number;
     user_id: number;
     name: string;
-    type: string;
-    location: string;
-    os: string;
-    ip: string;
     status: string;
-    created_at: string;
+    ip: string;
+    datacenter: string;
+    server_type: string;
     hourly_price: number;
+    monthly_price: number;
+    last_charge_at: string;
+    created_at: string;
+    specifications: {
+        cores: number;
+        memory: number;
+        disk: number;
+        disk_type: string;
+    };
 }
 
 export interface Transaction {
@@ -139,4 +146,10 @@ export interface Location {
     id: string;
     name: string;
     country: string;
+}
+
+export interface DashboardStats {
+    total_servers: number;
+    active_servers: number;
+    total_spent: number;
 } 

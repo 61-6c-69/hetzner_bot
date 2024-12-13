@@ -25,7 +25,7 @@ export default function Home({ prices }) {
         <meta name="keywords" content="سرور مجازی آلمان, خرید سرور ارزان, هتزنر, سرور vps" />
         <meta property="og:title" content="خرید سرور ارزان هتزنر | سرور مجازی آلمان" />
         <meta property="og:description" content="خرید سرور مجازی ارزان در آلمان با بهترین قیمت و کیفیت. پشتیبانی 24/7، تحویل آنی." />
-        <link rel="canonical" href="https://yourdomain.com" />
+        <link rel="canonical" href={`https://${process.env.NEXT_PUBLIC_DOMAIN}`} />
       </Head>
 
       <div className="bg-white">
@@ -134,7 +134,7 @@ export default function Home({ prices }) {
                 تعرفه‌های سرور مجازی
               </h2>
               <p className="mt-4 text-lg text-gray-600">
-                پرداخت به صو��ت ساعتی، بدون هزینه اضافی
+                پرداخت به صورت ساعتی، بدون هزینه اضافی
               </p>
             </div>
 

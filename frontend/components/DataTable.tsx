@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import Pagination from './Pagination';
 import SearchInput from './SearchInput';
 import SortButton from './SortButton';

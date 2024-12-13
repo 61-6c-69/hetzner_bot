@@ -1,4 +1,3 @@
-import { FiChevronRight, FiChevronLeft } from 'react-icons/fi';
 
 interface PaginationProps {
     currentPage: number;
