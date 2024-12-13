@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import type { PriceProps } from '@/types';
 
 export async function getStaticProps() {
   // دریافت قیمت‌ها از API
@@ -16,7 +17,7 @@ export async function getStaticProps() {
   };
 }
 
-export default function Home({ prices }) {
+export default function Home({ prices }: { prices: PriceProps }) {
   return (
     <>
       <Head>

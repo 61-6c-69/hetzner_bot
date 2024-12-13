@@ -1,8 +1,7 @@
-import { ReactNode } from 'react';
 import Pagination from './Pagination';
 import SearchInput from './SearchInput';
 import SortButton from './SortButton';
-import type { Column, DataTableProps } from '@/types/datatable';
+import type { DataTableProps } from '@/types/datatable';
 
 function isKeyOfT<T extends object>(key: keyof T | string, item: T): key is keyof T {
     return key in item;

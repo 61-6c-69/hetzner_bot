@@ -1,21 +1,12 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Cookies from 'js-cookie';
 import { endpoints } from '@/services/api';
-import { User } from '@/types';
+import type { User, AuthContextType } from '@/types';
 
-interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-    login: (token: string) => Promise<void>;
-    logout: () => void;
-    isAdmin: () => boolean;
-    refreshUser: () => Promise<void>;
-}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();

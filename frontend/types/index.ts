@@ -1,3 +1,6 @@
+import { ReactNode } from 'react';
+
+// User and Auth Types
 export interface User {
     id: number;
     username: string;
@@ -19,6 +22,39 @@ export interface JWTPayload {
   role: string
   exp: number
   iat: number
+}
+
+export interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+    error: string | null;
+    login: (token: string) => void;
+    logout: () => void;
+    isAdmin: () => boolean;
+    refreshUser: () => Promise<void>;
+}
+
+// Server and Resources Types
+export interface ServerResources {
+  ram: number;
+  cpu: number;
+  disk: number;
+}
+
+export interface PlanPricing {
+  hourly: number;
+  daily: number;
+}
+
+export interface ServerPlan extends PlanPricing {
+  name: string;
+  resources: ServerResources;
+}
+
+export interface PriceProps {
+  basic: ServerPlan;
+  pro: ServerPlan;
+  enterprise: ServerPlan;
 }
 
 export interface Server {
@@ -43,61 +79,17 @@ export interface Server {
     };
 }
 
-export interface Transaction {
-    id: number;
-    user_id: number;
-    amount: number;
-    type: 'deposit' | 'withdrawal' | 'server_charge' | 'ip_change';
-    status: 'pending' | 'completed' | 'failed' | 'refunded';
-    payment_id?: string;
-    description?: string;
-    created_at: string;
+export interface ServerAction {
+    action: 'start' | 'stop' | 'restart';
 }
 
-export interface Ticket {
-    id: number;
-    user_id: number;
-    subject: string;
-    message: string;
-    file_path?: string;
-    status: string;
-    priority: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface TicketMessage {
-    id: number;
-    ticket_id: number;
-    user_id: number;
-    message: string;
-    file_path?: string;
-    created_at: string;
-}
-
-export interface NotificationSettings {
-    id: number;
-    user_id: number;
-    server_notifications: boolean;
-    payment_notifications: boolean;
-    ticket_notifications: boolean;
-    low_balance_threshold: number;
-}
-
-export interface Price {
-    id: number;
-    type: string;
+export interface ServerType {
+    id: string;
     name: string;
-    specs: {
-        cpu: number;
-        memory: number;
-        disk: number;
-        bandwidth: number;
-    };
-    hourly_price: number;
-    monthly_price: number;
-    location: string;
-    available: boolean;
+    cpu: number;
+    memory: number;
+    disk: number;
+    price: number;
 }
 
 export interface ServerStats {
@@ -120,8 +112,48 @@ export interface ServerStats {
     }>;
 }
 
-export interface ServerAction {
-    action: 'start' | 'stop' | 'restart';
+// Transaction and Payment Types
+export interface Transaction {
+    id: number;
+    user_id: number;
+    amount: number;
+    type: 'deposit' | 'withdrawal' | 'server_charge' | 'ip_change';
+    status: 'pending' | 'completed' | 'failed' | 'refunded';
+    payment_id?: string;
+    description?: string;
+    created_at: string;
+}
+
+// Support and Tickets Types
+export interface Ticket {
+    id: number;
+    user_id: number;
+    subject: string;
+    message: string;
+    file_path?: string;
+    status: string;
+    priority: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface TicketMessage {
+    id: number;
+    ticket_id: number;
+    user_id: number;
+    message: string;
+    file_path?: string;
+    created_at: string;
+}
+
+// Settings and Notifications Types
+export interface NotificationSettings {
+    id: number;
+    user_id: number;
+    server_notifications: boolean;
+    payment_notifications: boolean;
+    ticket_notifications: boolean;
+    low_balance_threshold: number;
 }
 
 export interface UserSettingsUpdate {
@@ -138,27 +170,88 @@ export interface UserSettingsUpdate {
     };
 }
 
-export interface TelegramConnect {
-    code: string;
-}
-
-export interface ServerType {
-    id: string;
-    name: string;
-    cpu: number;
-    memory: number;
-    disk: number;
-    price: number;
-}
-
+// Location and Price Types
 export interface Location {
     id: string;
     name: string;
     country: string;
 }
 
+export interface Price {
+    id: number;
+    type: string;
+    name: string;
+    specs: {
+        cpu: number;
+        memory: number;
+        disk: number;
+        bandwidth: number;
+    };
+    hourly_price: number;
+    monthly_price: number;
+    location: string;
+    available: boolean;
+}
+
+// Component Props Types
+export interface ErrorMessageProps {
+    message: string;
+}
+
+export interface AdminLayoutProps {
+    children: ReactNode;
+}
+
+export interface ServerCardProps {
+    server: Server;
+    onAction?: (action: string) => void;
+}
+
+export interface PaginationProps {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+}
+
+export interface SearchInputProps {
+    onSearch: (query: string) => void;
+    className?: string;
+}
+
+export interface SortButtonProps {
+    label: string;
+    field: string;
+    currentSort: {
+        field: string;
+        order: 'asc' | 'desc';
+    };
+    onSort: (field: string) => void;
+}
+
+// Stats Types
 export interface DashboardStats {
     total_servers: number;
     active_servers: number;
     total_spent: number;
+}
+
+export interface AdminStats {
+    users: {
+        total: number;
+        active: number;
+    };
+    servers: {
+        total: number;
+        active: number;
+    };
+    transactions: {
+        total: number;
+        pending: number;
+        volume: number;
+    };
+}
+
+// Other Types
+export interface TelegramConnect {
+    code: string;
 } 

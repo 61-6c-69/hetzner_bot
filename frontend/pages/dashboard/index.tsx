@@ -98,7 +98,7 @@ export default function Dashboard() {
                     {servers.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {servers.map(server => (
-                                <ServerCard key={server.id} server={server} onUpdate={fetchData} />
+                                <ServerCard key={server.id} server={server} onAction={fetchData} />
                             ))}
                         </div>
                     ) : (

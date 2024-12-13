@@ -1,17 +1,11 @@
-import { useEffect, useState } from 'react';
-import { FiUsers, FiServer, FiDollarSign, FiMessageSquare } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
 import { endpoints } from '@/services/api';
 import AdminLayout from '@/components/AdminLayout';
+import type { AdminStats } from '@/types';
+import { FiServer, FiDollarSign, FiUsers } from 'react-icons/fi';
 
-interface Stats {
-    total_users: number;
-    active_servers: number;
-    monthly_revenue: number;
-    open_tickets: number;
-}
-
-const AdminDashboard = () => {
-    const [stats, setStats] = useState<Stats | null>(null);
+export default function AdminDashboard() {
+    const [stats, setStats] = useState<AdminStats | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -42,28 +36,32 @@ const AdminDashboard = () => {
     const statCards = [
         {
             title: 'کاربران',
-            value: stats?.total_users || 0,
+            value: stats?.users.total || 0,
+            subValue: `${stats?.users.active || 0} کاربر فعال`,
             icon: FiUsers,
             color: 'bg-blue-500',
         },
         {
-            title: 'سرورهای فعال',
-            value: stats?.active_servers || 0,
+            title: 'سرورها',
+            value: stats?.servers.total || 0,
+            subValue: `${stats?.servers.active || 0} سرور فعال`,
             icon: FiServer,
             color: 'bg-green-500',
         },
         {
-            title: 'درآمد ماهانه',
-            value: `$${stats?.monthly_revenue || 0}`,
+            title: 'تراکنش‌ها',
+            value: stats?.transactions.total || 0,
+            subValue: `${stats?.transactions.pending || 0} تراکنش در انتظار`,
             icon: FiDollarSign,
             color: 'bg-yellow-500',
         },
         {
-            title: 'تیکت‌های باز',
-            value: stats?.open_tickets || 0,
-            icon: FiMessageSquare,
-            color: 'bg-red-500',
-        },
+            title: 'گردش مالی',
+            value: (stats?.transactions.volume || 0).toLocaleString(),
+            subValue: 'تومان',
+            icon: FiDollarSign,
+            color: 'bg-purple-500',
+        }
     ];
 
     return (
@@ -86,20 +84,15 @@ const AdminDashboard = () => {
                                 <div>
                                     <p className="text-sm text-gray-600">{stat.title}</p>
                                     <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
+                                    {stat.subValue && (
+                                        <p className="text-sm text-gray-500">{stat.subValue}</p>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
                 </div>
-
-                {/* Recent Activity */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4">فعالیت‌های اخیر</h2>
-                    {/* Add recent activity list here */}
-                </div>
             </div>
         </AdminLayout>
     );
-};
-
-export default AdminDashboard;
+}

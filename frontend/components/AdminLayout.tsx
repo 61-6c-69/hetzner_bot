@@ -1,13 +1,9 @@
-import { ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { FiHome, FiServer, FiUsers, FiDollarSign, FiMessageSquare, FiBell } from 'react-icons/fi';
+import type { AdminLayoutProps } from '@/types';
 
-interface AdminLayoutProps {
-    children: ReactNode;
-}
-
-const AdminLayout = ({ children }: AdminLayoutProps) => {
+export default function AdminLayout({ children }: AdminLayoutProps) {
     const router = useRouter();
     const currentPath = router.pathname;
 
@@ -55,6 +51,4 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
             </main>
         </div>
     );
-};
-
-export default AdminLayout;
+}

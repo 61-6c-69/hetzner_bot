@@ -1,19 +1,14 @@
-import { Server } from '@/types';
+import Link from 'next/link';
+import type { ServerCardProps } from '@/types';
 import { endpoints } from '@/services/api';
 import { toast } from 'react-toastify';
-import Link from 'next/link';
 
-interface Props {
-    server: Server;
-    onUpdate: () => void;
-}
-
-export default function ServerCard({ server, onUpdate }: Props) {
+export default function ServerCard({ server, onAction }: ServerCardProps) {
     const handlePowerAction = async (action: 'start' | 'stop' | 'restart') => {
         try {
             await endpoints.servers.action(server.id, action);
             toast.success('عملیات با موفقیت انجام شد');
-            onUpdate();
+            onAction?.(action);
         } catch (error: any) {
             toast.error(error.response?.data?.detail || 'خطا در انجام عملیات');
         }
@@ -23,7 +18,7 @@ export default function ServerCard({ server, onUpdate }: Props) {
         try {
             await endpoints.servers.changeIP(server.id);
             toast.success('IP با موفقیت تغییر کرد');
-            onUpdate();
+            onAction?.('change_ip');
         } catch (error: any) {
             toast.error(error.response?.data?.detail || 'خطا در تغییر IP');
         }
