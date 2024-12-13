@@ -59,7 +59,7 @@ A Telegram bot and web application for managing Hetzner servers.
 
 1. کلون کردن مخزن:
 ```bash
-git clone https://github.com/yourusername/hetzner_bot.git
+git clone https://github.com/mjavadalavi/hetzner_bot.git
 cd hetzner_bot
 ```
 
