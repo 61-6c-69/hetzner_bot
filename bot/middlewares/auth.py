@@ -1,9 +1,9 @@
 from aiogram.dispatcher.handler import CancelHandler
 from aiogram.dispatcher.middlewares import BaseMiddleware
-from database.models import User, TelegramSession
-from database.database import AsyncSessionLocal
+from repositories.user_repository import UserRepository
+from repositories.session_repository import SessionRepository
+from database.database import get_db
 from aiogram import types
-from sqlalchemy import select
 
 
 class AuthMiddleware(BaseMiddleware):
@@ -15,23 +15,15 @@ class AuthMiddleware(BaseMiddleware):
             raise CancelHandler()
 
 
-async def check_user_session(telegram_id: int) -> User:
-    async with AsyncSessionLocal() as db:
-        # Check active session
-        result = await db.execute(
-            select(TelegramSession)
-            .where(
-                TelegramSession.telegram_id == telegram_id,
-                TelegramSession.is_active == True
-            )
-        )
-        session = result.scalar_one_or_none()
+async def check_user_session(telegram_id: int):
+    async for db in get_db():
+        session_repo = SessionRepository(db)
+        user_repo = UserRepository(db)
         
+        # Check active session
+        session = await session_repo.get_active_session(telegram_id)
         if not session:
             return None
             
         # Get user
-        result = await db.execute(
-            select(User).where(User.id == session.user_id)
-        )
-        return result.scalar_one_or_none()
+        return await user_repo.get(session.user_id)

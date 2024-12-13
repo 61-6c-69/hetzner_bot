@@ -1,54 +1,12 @@
-from typing import List, Optional, Any, TypeVar, Generic, Type, cast
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from database.models import NotificationSettings, Base
-from datetime import timedelta, datetime
-import pickle
-import redis
+from sqlalchemy.ext.asyncio import AsyncSession
+from repositories.base import BaseRepository
 from core.settings import CACHE_TTL_DEFAULT
+from typing import Optional, TypeVar
+from datetime import timedelta
+from sqlalchemy import select
 
 ModelType = TypeVar("ModelType", bound=Base)
-
-
-class BaseRepository(Generic[ModelType]):
-    def __init__(self, model: Type[ModelType], db: AsyncSession):
-        self.model = model
-        self.db = db
-        self.redis = redis.Redis(host='localhost', port=6379, db=0)
-        self.cache_ttl = timedelta(minutes=5)
-
-    def _get_cache_key(self, key: str) -> str:
-        return f"{self.model.__name__}:{key}"
-
-    async def _get_from_cache(self, cache_key: str) -> Any:
-        data = self.redis.get(cache_key)
-        if data:
-            return pickle.loads(cast(bytes, data))
-        return None
-
-    async def _set_cache(self, cache_key: str, value: Any):
-        self.redis.set(
-            cache_key,
-            pickle.dumps(value),
-            ex=int(self.cache_ttl.total_seconds())
-        )
-
-    async def get(self, id: int) -> Optional[ModelType]:
-        cache_key = self._get_cache_key(str(id))
-
-        cached_item = await self._get_from_cache(cache_key)
-        if cached_item:
-            return cached_item
-
-        result = await self.db.execute(
-            select(self.model).where(self.model.id == id)
-        )
-        item = result.scalar_one_or_none()
-
-        if item:
-            await self._set_cache(cache_key, item)
-
-        return item
 
 
 class NotificationRepository(BaseRepository[NotificationSettings]):

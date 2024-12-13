@@ -1,10 +1,9 @@
-from datetime import datetime
-
-from utils.price_cache import get_cached_prices, update_price_cache
+from utils.price_cache import update_price_cache, get_cached_prices
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.hetzner_api import hetzner
 from database.models import Server
-from typing import List, Dict, Any
+from typing import Dict, Any, List
+from datetime import datetime
 from sqlalchemy import select
 
 
@@ -29,7 +28,7 @@ class PriceRepository:
 
     async def get_server_price(self, server_type: str) -> Dict[str, Any]:
         """Get price for specific server type"""
-        prices = await self.get_all_prices()
+        prices = await update_price_cache()
         return next(
             (p for p in prices if p['type'] == server_type),
             None

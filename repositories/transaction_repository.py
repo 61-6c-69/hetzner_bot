@@ -18,6 +18,16 @@ class TransactionRepository:
         )
         return list(result.scalars().all())
 
+    async def get_user_recent_transactions(self, user_id: int, limit: int) -> List[Transaction]:
+        """Get all transactions for a user"""
+        result = await self.db.execute(
+            select(Transaction)
+            .where(Transaction.user_id == user_id)
+            .order_by(Transaction.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def create_deposit(
         self,
         user_id: int,

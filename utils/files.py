@@ -1,8 +1,8 @@
-import os
-import uuid
 from fastapi import UploadFile
-from datetime import datetime
 from config import UPLOAD_DIR
+from datetime import datetime
+import uuid
+import os
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'doc', 'docx'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB

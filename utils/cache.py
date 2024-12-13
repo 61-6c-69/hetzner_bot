@@ -1,7 +1,8 @@
-from redis import Redis
-from config import REDIS_URL
-import json
 from typing import Any, Optional
+from config import REDIS_URL
+from redis import Redis
+import json
+
 
 class CacheService:
     def __init__(self):
@@ -47,4 +48,5 @@ class CacheService:
         """Clear failed attempts counter"""
         self.redis.delete(f"{key}:attempts")
 
-cache_service = CacheService() 
+
+cache_service = CacheService()

@@ -41,16 +41,16 @@ async def create_payment_link(
 
     try:
         # Create pending transaction
-        transaction = await transaction_repo.create(
+        transaction = await transaction_repo.create_deposit(
             user_id=current_user.id,
             amount=amount,
-            status='pending'
+            payment_id=None
         )
 
         # Create payment link
         payment_link = await payment_handler.create_payment(
             amount=amount,
-            description=f"شارژ حساب کاربری {current_user.username}",
+            description=f" شارژ حساب کاربری {current_user.id}",
             callback_url=f"{API_URL}/payments/verify?transaction_id={transaction.id}",
             transaction=transaction
         )

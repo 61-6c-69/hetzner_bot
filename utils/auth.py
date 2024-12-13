@@ -1,14 +1,12 @@
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timedelta
-
-from jose import JWTError, jwt
-
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, ADMIN_IDS
-from database.models import User
-from sqlalchemy import select
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, HTTPException
+from datetime import datetime, timedelta
 from database.database import get_db
+from database.models import User
+from jose import JWTError, jwt
+from sqlalchemy import select
 from fastapi import status
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/verify-otp")

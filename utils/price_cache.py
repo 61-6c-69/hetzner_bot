@@ -1,6 +1,9 @@
 from config import REDIS_URL
 from redis import Redis
 import json
+from utils.hetzner_api import hetzner
+from repositories.price_repository import PriceRepository
+from database.database import get_db
 
 redis_client = Redis.from_url(REDIS_URL)
 CACHE_KEY = "server_prices"
@@ -21,51 +24,11 @@ async def get_cached_prices():
 async def update_price_cache():
     """به‌روزرسانی کش قیمت‌ها"""
     # دریافت آخرین قیمت‌ها از دیتابیس
-    server_prices = await Server.all().distinct().values(
-        'type',
-        'hourly_price'
-    )
+    price_repository = PriceRepository()
+    prices = price_repository.get_all_prices()
 
-    # تبدیل به دیکشنری برای دسترسی راحت‌تر
-    price_map = {}
-    for server in server_prices:
-        price_map[server['type']] = server['hourly_price']
-
-    prices = {
-        'basic': {
-            'name': 'پلن اقتصادی',
-            'specs': '1 Core, 2GB RAM',
-            'hourly': price_map.get('cx11', 300),  # اگر در دیتابیس نبود، مقدار پیش‌فرض
-            'daily': price_map.get('cx11', 300) * 24,
-            'resources': {
-                'cpu': 1,
-                'ram': 2,
-                'disk': 20
-            }
-        },
-        'pro': {
-            'name': 'پلن حرفه‌ای',
-            'specs': '2 Cores, 4GB RAM',
-            'hourly': price_map.get('cx21', 600),
-            'daily': price_map.get('cx21', 600) * 24,
-            'resources': {
-                'cpu': 2,
-                'ram': 4,
-                'disk': 40
-            }
-        },
-        'enterprise': {
-            'name': 'پلن سازمانی',
-            'specs': '4 Cores, 8GB RAM',
-            'hourly': price_map.get('cx31', 1000),
-            'daily': price_map.get('cx31', 1000) * 24,
-            'resources': {
-                'cpu': 4,
-                'ram': 8,
-                'disk': 80
-            }
-        }
-    }
+    if not prices:
+        prices = get_cached_prices()
 
     # ذخیره در Redis
     redis_client.setex(

@@ -49,7 +49,7 @@ async def create_server(
     )
 
     # Create transaction
-    await transaction_repo.create(
+    await transaction_repo.create_deposit(
         user_id=current_user.id,
         amount=-price,
         description=f"خرید سرور {server.type}",

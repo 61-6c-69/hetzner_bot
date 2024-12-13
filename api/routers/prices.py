@@ -13,7 +13,7 @@ async def get_prices(
 ):
     """Get all server prices"""
     repo = PriceRepository(db)
-    return await repo.get_all_prices()
+    return await repo.get_server_price()
 
 
 @router.get("/server/{server_type}", response_model=schemas.Price)

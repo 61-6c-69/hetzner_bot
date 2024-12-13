@@ -1,7 +1,6 @@
-import os
-
-import aiohttp
 from config import PROFIT_MARGIN, EXCHANGE_API_KEY
+import aiohttp
+import os
 
 
 class CurrencyConverter:

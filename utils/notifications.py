@@ -2,11 +2,10 @@ import logging
 from enum import Enum
 from aiogram import Bot
 from typing import Optional, Dict, Any
-from database.models import User, NotificationSettings, Server
+from database.database import async_session_maker
+from repositories.user_repository import UserRepository
+from repositories.notification_repository import NotificationRepository
 from config import BOT_TOKEN
-from sqlalchemy import select
-from database.database import AsyncSessionLocal
-from datetime import datetime
 
 # Initialize bot
 bot = Bot(token=BOT_TOKEN)
@@ -36,11 +35,9 @@ messages = {
 async def notify_user(user_id: int, message: str, parse_mode: str = 'HTML') -> bool:
     """ارسال نوتیفیکیشن به کاربر"""
     try:
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(User).where(User.id == user_id)
-            )
-            user = result.scalar_one_or_none()
+        async with async_session_maker() as db:
+            user_repo = UserRepository(db)
+            user = await user_repo.get_by_id(user_id)
 
             if user and user.telegram_id:
                 await bot.send_message(
@@ -55,100 +52,52 @@ async def notify_user(user_id: int, message: str, parse_mode: str = 'HTML') -> b
 
 
 async def send_notification(
-        user: User,
+        user,
         type: NotificationType,
         **kwargs: Dict[str, Any]
 ) -> bool:
-    """Send a notification to a user based on type and settings"""
+    """ارسال نوتیفیکیشن با قالب مشخص"""
     try:
-        async with AsyncSessionLocal() as db:
-            # Get notification settings
-            result = await db.execute(
-                select(NotificationSettings)
-                .where(NotificationSettings.user_id == user.id)
-            )
-            settings = result.scalar_one_or_none()
+        async with async_session_maker() as db:
+            notification_repo = NotificationRepository(db)
+            settings = await notification_repo.get_or_create(user.id)
 
-            # Check if notifications are enabled for this type
+            # بررسی تنظیمات نوتیفیکیشن کاربر
             if not settings:
                 return False
 
-            if type == NotificationType.SERVER_CREATED and not settings.server_notifications:
-                return False
-            elif type == NotificationType.SERVER_STOPPED and not settings.server_notifications:
-                return False
-            elif type == NotificationType.SERVER_WARNING and not settings.server_notifications:
-                return False
-            elif type == NotificationType.LOW_BALANCE and not settings.payment_notifications:
+            if type == NotificationType.SERVER_WARNING and not settings.server_notifications:
                 return False
             elif type == NotificationType.PAYMENT_SUCCESS and not settings.payment_notifications:
                 return False
             elif type == NotificationType.TICKET_REPLY and not settings.ticket_notifications:
                 return False
-
-            # Get message template
-            message_template = messages.get(type)
-            if not message_template:
-                logger.error(f"Unknown notification type: {type}")
+            elif type == NotificationType.LOW_BALANCE and not settings.low_balance_threshold:
                 return False
 
-            try:
-                message = message_template.format(**kwargs)
-            except KeyError as e:
-                logger.error(f"Missing required parameter for notification type {type}: {e}")
-                return False
+            # ساخت پیام با قالب مناسب
+            message = messages[type].format(**kwargs)
 
-            return await notify_user(user.id, message)
+            # ارسال به کاربر
+            if user.telegram_id:
+                await bot.send_message(
+                    chat_id=user.telegram_id,
+                    text=message,
+                    parse_mode='HTML'
+                )
+                return True
 
     except Exception as e:
         logger.error(f"Error sending notification: {e}")
         return False
 
 
-async def notify_low_balance(user_id: int, current_balance: float):
-    """Send low balance notification if threshold is reached"""
-    try:
-        async with AsyncSessionLocal() as db:
-            # Get notification settings
-            result = await db.execute(
-                select(NotificationSettings)
-                .where(NotificationSettings.user_id == user_id)
-            )
-            settings = result.scalar_one_or_none()
-
-            if not settings or not settings.payment_notifications:
-                return
-
-            if current_balance < settings.low_balance_threshold:
-                # Get user
-                user_result = await db.execute(
-                    select(User).where(User.id == user_id)
-                )
-                user = user_result.scalar_one_or_none()
-
-                if user:
-                    await send_notification(
-                        user,
-                        NotificationType.LOW_BALANCE,
-                        balance=current_balance
-                    )
-
-                    # Update last notification time to prevent spam
-                    settings.last_low_balance_notification = datetime.utcnow()
-                    await db.commit()
-    except Exception as e:
-        logger.error(f"Error in notify_low_balance for user {user_id}: {e}")
-
-
 async def notify_admins(message: str, file_path: Optional[str] = None):
     """Send notification to all admin users"""
     try:
-        async with AsyncSessionLocal() as db:
-            # Get all admin users
-            result = await db.execute(
-                select(User).where(User.is_superuser == True)
-            )
-            admins = result.scalars().all()
+        async with async_session_maker() as db:
+            user_repo = UserRepository(db)
+            admins = await user_repo.get_admins()
 
             for admin in admins:
                 if admin.telegram_id:
@@ -177,22 +126,18 @@ async def notify_admins(message: str, file_path: Optional[str] = None):
 async def notify_server_action(server_id: int, action: str, admin_id: int):
     """Notify server owner about admin action"""
     try:
-        async with AsyncSessionLocal() as db:
-            # Get server and owner
-            result = await db.execute(
-                select(User)
-                .join(Server)
-                .where(Server.id == server_id)
-            )
-            owner = result.scalar_one_or_none()
+        async with async_session_maker() as db:
+            user_repo = UserRepository(db)
+            server_repo = ServerRepository(db)
+
+            server = await server_repo.get_by_id(server_id)
+            if not server:
+                return
+
+            owner = await user_repo.get_by_id(server.user_id)
+            admin = await user_repo.get_by_id(admin_id)
 
             if owner and owner.telegram_id:
-                # Get admin info
-                admin_result = await db.execute(
-                    select(User).where(User.id == admin_id)
-                )
-                admin = admin_result.scalar_one_or_none()
-
                 message = (
                     f"🔔 اقدام مدیر بر روی سرور\n"
                     f"عملیات: {action}\n"
