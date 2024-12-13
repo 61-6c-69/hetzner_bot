@@ -1,13 +1,13 @@
 import { ReactNode } from 'react';
 
-export interface Column<T> {
+export interface Column<T extends object> {
     key: keyof T | string;
     label: string;
     sortable?: boolean;
     render?: (item: T) => ReactNode;
 }
 
-export interface DataTableProps<T> {
+export interface DataTableProps<T extends object> {
     columns: Column<T>[];
     data: T[];
     totalItems: number;

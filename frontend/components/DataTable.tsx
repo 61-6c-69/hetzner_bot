@@ -4,11 +4,11 @@ import SearchInput from './SearchInput';
 import SortButton from './SortButton';
 import type { Column, DataTableProps } from '@/types/datatable';
 
-function isKeyOfT<T>(key: keyof T | string, item: T): key is keyof T {
+function isKeyOfT<T extends object>(key: keyof T | string, item: T): key is keyof T {
     return key in item;
 }
 
-export default function DataTable<T>({
+export default function DataTable<T extends object>({
     columns,
     data,
     totalItems,
