@@ -1,23 +1,29 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { endpoints } from '@/services/api';
 import type { PriceProps } from '@/types';
 
-export async function getStaticProps() {
-  // دریافت قیمت‌ها از API
-  const res = await fetch(`${process.env.API_URL}/prices`);
-  const prices = await res.json();
+export default function Home() {
+  const [prices, setPrices] = useState<PriceProps | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  return {
-    props: {
-      prices
-    },
-    // هر 24 ساعت صفحه رو دوباره بساز
-    revalidate: 60 * 60 * 24
-  };
-}
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const { data } = await endpoints.prices.list();
+        setPrices(data);
+      } catch (error) {
+        console.error('Failed to fetch prices:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-export default function Home({ prices }: { prices: PriceProps }) {
+    fetchPrices();
+  }, []);
+
   return (
     <>
       <Head>
@@ -139,136 +145,146 @@ export default function Home({ prices }: { prices: PriceProps }) {
               </p>
             </div>
 
-            <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Basic Plan */}
-              <div className="border border-gray-200 rounded-lg shadow-sm p-6 bg-white hover:border-blue-500 transition-colors duration-300">
-                <h3 className="text-lg font-medium text-gray-900">{prices.basic.name}</h3>
-                <p className="mt-4 text-sm text-gray-500">مناسب برای شروع کار</p>
-                <div className="pricing-card mt-8">
-                  <div className="prices space-y-4">
-                    <div className="daily">
-                      <span className="text-4xl font-extrabold text-gray-900">
-                        {prices.basic.daily.toLocaleString()}
-                      </span>
-                      <span className="text-base font-medium text-gray-500"> تومان / روز</span>
-                      <p className="text-sm text-gray-500 mt-1">
-                        ({prices.basic.hourly.toLocaleString()} تومان در ساعت)
-                      </p>
-                    </div>
-                  </div>
-                  <ul className="mt-6 space-y-4">
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>{prices.basic.resources.ram}GB RAM</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>{prices.basic.resources.cpu} Core CPU</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>{prices.basic.resources.disk}GB SSD</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>ترافیک نامحدود</span>
-                    </li>
-                  </ul>
-                  <Link href="/auth/login">
-                    <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
-                      سفارش
-                    </a>
-                  </Link>
-                </div>
+            {loading ? (
+              <div className="mt-16 text-center">
+                <p>در حال بارگذاری تعرفه‌ها...</p>
               </div>
+            ) : prices ? (
+              <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Basic Plan */}
+                <div className="border border-gray-200 rounded-lg shadow-sm p-6 bg-white hover:border-blue-500 transition-colors duration-300">
+                  <h3 className="text-lg font-medium text-gray-900">{prices.basic.name}</h3>
+                  <p className="mt-4 text-sm text-gray-500">مناسب برای شروع کار</p>
+                  <div className="pricing-card mt-8">
+                    <div className="prices space-y-4">
+                      <div className="daily">
+                        <span className="text-4xl font-extrabold text-gray-900">
+                          {prices.basic.daily.toLocaleString()}
+                        </span>
+                        <span className="text-base font-medium text-gray-500"> تومان / روز</span>
+                        <p className="text-sm text-gray-500 mt-1">
+                          ({prices.basic.hourly.toLocaleString()} تومان در ساعت)
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="mt-6 space-y-4">
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>{prices.basic.resources.ram}GB RAM</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>{prices.basic.resources.cpu} Core CPU</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>{prices.basic.resources.disk}GB SSD</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>ترافیک نامحدود</span>
+                      </li>
+                    </ul>
+                    <Link href="/auth/login">
+                      <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
+                        سفارش
+                      </a>
+                    </Link>
+                  </div>
+                </div>
 
-              {/* Pro Plan */}
-              <div className="border border-blue-500 rounded-lg shadow-sm p-6 bg-white relative">
-                <div className="absolute top-0 right-0 mt-2 mr-2">
-                  <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs">پرفروش</span>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">پلن حرفه‌ای</h3>
-                <p className="mt-4 text-sm text-gray-500">مناسب برای کسب و کارهای متوسط</p>
-                <div className="pricing-card mt-8">
-                  <div className="prices space-y-4">
-                    <div className="daily">
-                      <span className="text-4xl font-extrabold text-gray-900">14,400</span>
-                      <span className="text-base font-medium text-gray-500"> تومان / روز</span>
-                      <p className="text-sm text-gray-500 mt-1">(600 تومان در ساعت)</p>
-                    </div>
+                {/* Pro Plan */}
+                <div className="border border-blue-500 rounded-lg shadow-sm p-6 bg-white relative">
+                  <div className="absolute top-0 right-0 mt-2 mr-2">
+                    <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs">پرفروش</span>
                   </div>
-                  <ul className="mt-6 space-y-4">
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>4GB RAM</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>2 Core CPU</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>40GB SSD</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>ترافیک نامحدود</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>پشتیبانی اولویت‌دار</span>
-                    </li>
-                  </ul>
-                  <Link href="/auth/login">
-                    <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
-                      سفارش
-                    </a>
-                  </Link>
+                  <h3 className="text-lg font-medium text-gray-900">پلن حرفه‌ای</h3>
+                  <p className="mt-4 text-sm text-gray-500">مناسب برای کسب و کارهای متوسط</p>
+                  <div className="pricing-card mt-8">
+                    <div className="prices space-y-4">
+                      <div className="daily">
+                        <span className="text-4xl font-extrabold text-gray-900">14,400</span>
+                        <span className="text-base font-medium text-gray-500"> تومان / روز</span>
+                        <p className="text-sm text-gray-500 mt-1">(600 تومان در ساعت)</p>
+                      </div>
+                    </div>
+                    <ul className="mt-6 space-y-4">
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>4GB RAM</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>2 Core CPU</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>40GB SSD</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>ترافیک نامحدود</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>پشتیبانی اولویت‌دار</span>
+                      </li>
+                    </ul>
+                    <Link href="/auth/login">
+                      <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
+                        سفارش
+                      </a>
+                    </Link>
+                  </div>
                 </div>
-              </div>
 
-              {/* Enterprise Plan */}
-              <div className="border border-gray-200 rounded-lg shadow-sm p-6 bg-white hover:border-blue-500 transition-colors duration-300">
-                <h3 className="text-lg font-medium text-gray-900">پلن سازمانی</h3>
-                <p className="mt-4 text-sm text-gray-500">مناسب برای کسب و کارهای بزرگ</p>
-                <div className="pricing-card mt-8">
-                  <div className="prices space-y-4">
-                    <div className="daily">
-                      <span className="text-4xl font-extrabold text-gray-900">24,000</span>
-                      <span className="text-base font-medium text-gray-500"> تومان / روز</span>
-                      <p className="text-sm text-gray-500 mt-1">(1,000 تومان در ساعت)</p>
+                {/* Enterprise Plan */}
+                <div className="border border-gray-200 rounded-lg shadow-sm p-6 bg-white hover:border-blue-500 transition-colors duration-300">
+                  <h3 className="text-lg font-medium text-gray-900">پلن سازمانی</h3>
+                  <p className="mt-4 text-sm text-gray-500">مناسب برای کسب و کارهای بزرگ</p>
+                  <div className="pricing-card mt-8">
+                    <div className="prices space-y-4">
+                      <div className="daily">
+                        <span className="text-4xl font-extrabold text-gray-900">24,000</span>
+                        <span className="text-base font-medium text-gray-500"> تومان / روز</span>
+                        <p className="text-sm text-gray-500 mt-1">(1,000 تومان در ساعت)</p>
+                      </div>
                     </div>
+                    <ul className="mt-6 space-y-4">
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>8GB RAM</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>4 Core CPU</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>80GB SSD</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>ترافیک نامحدود</span>
+                      </li>
+                      <li className="flex items-center">
+                        <span className="text-blue-500 mr-2">✓</span>
+                        <span>پشتیبانی اختصاصی</span>
+                      </li>
+                    </ul>
+                    <Link href="/auth/login">
+                      <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
+                        سفارش
+                      </a>
+                    </Link>
                   </div>
-                  <ul className="mt-6 space-y-4">
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>8GB RAM</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>4 Core CPU</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>80GB SSD</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>ترافیک نامحدود</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="text-blue-500 mr-2">✓</span>
-                      <span>پشتیبانی اختصاصی</span>
-                    </li>
-                  </ul>
-                  <Link href="/auth/login">
-                    <a className="mt-8 block w-full bg-blue-600 text-white text-center py-2 rounded-md hover:bg-blue-700">
-                      سفارش
-                    </a>
-                  </Link>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-16 text-center text-red-600">
+                <p>خطا در بارگذاری تعرفه‌ها. لطفاً صفحه را مجدداً بارگذاری کنید.</p>
+              </div>
+            )}
 
             {/* Additional Info */}
             <div className="mt-12 text-center">
