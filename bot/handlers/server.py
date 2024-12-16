@@ -1,3 +1,5 @@
+from repositories import PriceRepository
+from utils.keyboards import get_main_keyboard
 from utils.notifications import send_notification, NotificationType
 from repositories.user_repository import UserRepository
 from repositories.server_repository import ServerRepository
@@ -23,7 +25,7 @@ async def cmd_create_server(message: types.Message):
         balance = await user_repo.get_balance(user.id)
         
         # Get minimum server price
-        min_price = await price_repo.get_minimum_price()
+        min_price = await price_repo.get_all_prices()
         
         if balance < min_price:
             await message.reply(
@@ -35,7 +37,7 @@ async def cmd_create_server(message: types.Message):
             return
 
         # Show server creation menu
-        await show_server_creation_menu(message)
+        await get_main_keyboard(message)
 
 
 @dp.message_handler(lambda message: message.text == "🖥 سرور جدید")

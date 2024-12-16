@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from repositories.ticket_repository import TicketRepository
-from repositories.user_repository import UserRepository
+from repositories import TicketRepository, UserRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.files import save_ticket_file
 from utils.auth import get_current_user

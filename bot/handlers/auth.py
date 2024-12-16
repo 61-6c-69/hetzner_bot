@@ -53,7 +53,7 @@ async def phone_command(message: types.Message):
             )
             
             # ایجاد تنظیمات اعلان‌ها
-            await notif_repo.create_settings(
+            await notif_repo.create(
                 user_id=user.id,
                 server_notifications=True,
                 payment_notifications=True,

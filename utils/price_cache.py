@@ -5,7 +5,7 @@ from utils.hetzner_api import hetzner
 from repositories.price_repository import PriceRepository
 from database.database import get_db
 
-redis_client = Redis.from_url(REDIS_URL)
+redis_client = Redis()
 CACHE_KEY = "server_prices"
 CACHE_DURATION = 60 * 60 * 24  # 24 ساعت
 

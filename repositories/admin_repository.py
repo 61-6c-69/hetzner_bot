@@ -1,7 +1,7 @@
 from database.models import Ticket, User, Server, Transaction
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.notifications import notify_user
-from typing import Optional, Sequence, List, Tuple, Dict, Any
+from typing import Optional, Sequence, List, Tuple
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select, func, or_
 from datetime import datetime

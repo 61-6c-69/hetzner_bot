@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationType(str, Enum):
+    HIGH_CPU_USAGE = 'high_cpu_usage'
+    HIGH_DISK_USAGE = 'high_disk_usage'
+    HIGH_MEMORY_USAGE = 'high_memory_usage'
+    SERVER_SYNC_ERROR = 'server_sync_error'
+    SERVER_STATUS_CHANGE = 'server_status_change'
     SERVER_CREATED = "server_created"
     SERVER_DELETED = "server_deleted"
     SERVER_STARTED = "server_started"

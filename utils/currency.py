@@ -1,4 +1,4 @@
-from config import PROFIT_MARGIN, EXCHANGE_API_KEY
+from config import PROFIT_MARGIN
 import aiohttp
 import os
 
@@ -30,9 +30,9 @@ class CurrencyConverter:
 
         # کارمزدهای ثابت (به یورو)
         FIXED_FEES = {
-            'maintenance': 2,  # هزینه نگهداری
-            'payment_gateway': 1,  # کارمزد درگاه پرداخت
-            'support': 3,  # هزینه پشتیبانی
+            'maintenance': .02,  # هزینه نگهداری
+            'payment_gateway': .01,  # کارمزد درگاه پرداخت
+            'support': .03,  # هزینه پشتیبانی
         }
 
         total_eur = price_with_margin + sum(FIXED_FEES.values())

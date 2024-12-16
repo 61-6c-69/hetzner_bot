@@ -1,6 +1,6 @@
 from typing import Optional, Any
-import redis
 import json
+from redis.asyncio import Redis
 
 from core.settings import (
     REDIS_URL,
@@ -21,7 +21,7 @@ class Redis:
 
     def _initialize(self):
         """Initialize Redis connection"""
-        self.redis = redis.Redis.from_url(
+        self.redis = Redis.from_url(
             REDIS_URL,
             password=REDIS_PASSWORD,
             db=REDIS_DB,

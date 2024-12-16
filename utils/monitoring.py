@@ -1,13 +1,14 @@
+from utils.notifications import send_notification, NotificationType
+from repositories.server_repository import ServerRepository
+from repositories.stats_repository import StatsRepository
+from datetime import datetime, timedelta
+from repositories import UserRepository
+from utils.hetzner_api import hetzner
+from database.database import get_db
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from database.database import async_session_maker
-from repositories.server_repository import ServerRepository
-from repositories.user_repository import UserRepository
-from repositories.stats_repository import StatsRepository
-from utils.hetzner_api import hetzner
-from utils.notifications import send_notification, NotificationType
-from config import LOW_BALANCE_THRESHOLD
+
+from utils.redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,13 @@ async def check_servers_status():
     """بررسی وضعیت سرورها"""
     while True:
         try:
-            async with async_session_maker() as db:
+
+            async for db in get_db():
                 server_repo = ServerRepository(db)
                 stats_repo = StatsRepository(db)
                 
                 # دریافت همه سرورهای فعال
-                servers = await server_repo.get_running_servers()
+                servers = await server_repo.get_all_running_servers()
 
                 for server in servers:
                     try:
@@ -40,7 +42,11 @@ async def check_servers_status():
 
                         # بررسی هشدارها
                         await check_resource_usage(server, stats)
-                        await check_user_balance(server.user)
+                        await check_user_balance(
+                            server.user,
+                            server_repo,
+                            UserRepository(db)
+                        )
 
                     except Exception as e:
                         logger.error(f"Error checking server {server.id}: {e}")
@@ -78,11 +84,17 @@ async def check_resource_usage(server, stats: dict):
             )
 
 
-async def check_user_balance(user):
+async def check_user_balance(user, server_repo: ServerRepository, user_repo: UserRepository):
     """بررسی موجودی کاربر"""
-    if user.balance < LOW_BALANCE_THRESHOLD:
-        await send_notification(
-            user,
-            NotificationType.LOW_BALANCE,
-            amount=LOW_BALANCE_THRESHOLD
-        )
+    redis = Redis()
+    result = await redis.get(f"monitoring_{user.id}_balance")
+    if result:
+        servers = await server_repo.get_user_servers(user.id)
+        price = sum(server.hourly_price for server in servers) * 24
+        balance = await user_repo.get_balance(user.id)
+        if balance < price:
+            await send_notification(
+                user,
+                NotificationType.LOW_BALANCE,
+                amount=balance
+            )

@@ -1,8 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
 from utils.tasks import charge_servers, check_and_handle_low_balance
-from database.database import init_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,5 +27,4 @@ async def run_billing_tasks():
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(init_db())
     loop.run_until_complete(run_billing_tasks())

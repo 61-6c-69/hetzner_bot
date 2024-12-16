@@ -1,6 +1,5 @@
 import os
 
-
 # Bot Configuration
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS = [
@@ -44,9 +43,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # ضریب سود (20 درصد)
 PROFIT_MARGIN = 1.20
 
-
 # API Key برای سرویس نرخ ارز (اگر نیاز باشد)
 EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY", default=None)
 
 # Domain Configuration
 DOMAIN = os.getenv("DOMAIN", "your-domain.com")
+
+#SUPPORT_CHAT_ID
+SUPPORT_CHAT_ID = os.getenv("SUPPORT_CHAT_ID")

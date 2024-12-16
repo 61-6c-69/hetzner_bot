@@ -1,18 +1,18 @@
+from utils.notifications import send_notification, NotificationType
+from utils.rate_limiter import rate_limiter, RateLimits
+from sqlalchemy.ext.asyncio import AsyncSession
+from utils.cache_manager import cache_manager
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from database.models import Server
 from utils.hetzner_api import hetzner
-from utils.notifications import send_notification, NotificationType
-from utils.cache import cache_service
-from utils.cache_manager import cache_manager
-from utils.rate_limiter import rate_limiter, RateLimits
-import logging
+from database.models import Server
 from fastapi import HTTPException
+from sqlalchemy import select
+import logging
 import asyncio
 
 logger = logging.getLogger(__name__)
+
 
 class ServerSynchronizer:
     def __init__(self, db: AsyncSession):
@@ -127,6 +127,7 @@ class ServerSynchronizer:
 
         except Exception as e:
             logger.error(f"خطا در همگام‌سازی سرور {server_id}: {str(e)}")
+            server = await self._get_server_from_db(server_id)
             await self._handle_sync_error(server, e)
             return {
                 "id": server_id,

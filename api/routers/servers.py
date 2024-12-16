@@ -1,8 +1,8 @@
-from repositories.transaction_repository import TransactionRepository
-from repositories.server_repository import ServerRepository
-from repositories.user_repository import UserRepository
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from repositories import ServerRepository, UserRepository, TransactionRepository, TransactionManager
 from utils.auth import get_current_user
 from utils.hetzner_api import hetzner
 from database.database import get_db
@@ -31,7 +31,6 @@ async def create_server(
     """ایجاد سرور جدید"""
     server_repo = ServerRepository(db)
     user_repo = UserRepository(db)
-    transaction_repo = TransactionRepository(db)
 
     # Calculate price
     price = await hetzner.calculate_price(server.type)
@@ -48,8 +47,8 @@ async def create_server(
         os=server.os
     )
 
-    # Create transaction
-    await transaction_repo.create_deposit(
+    transactionManager = TransactionManager(db)
+    await transactionManager.create_deposit(
         user_id=current_user.id,
         amount=-price,
         description=f"خرید سرور {server.type}",
@@ -77,7 +76,7 @@ async def get_server(
 ):
     """دریافت اطلاعات یک سرور"""
     repo = ServerRepository(db)
-    server = await repo.get_server(server_id)
+    server = await repo.get(server_id)
     
     if not server or server.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Server not found")
@@ -94,12 +93,12 @@ async def server_action(
 ):
     """اجرای عملیات روی سرور (روشن/خاموش/ریستارت)"""
     repo = ServerRepository(db)
-    server = await repo.get_server(server_id)
+    server = await repo.get(server_id)
     
     if not server or server.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Server not found")
         
-    success = await repo.perform_action(server_id, action.action)
+    success = await repo.power_off(server_id, action.action)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to perform action")
         
@@ -114,7 +113,7 @@ async def change_server_ip(
 ):
     """تغییر IP سرور"""
     repo = ServerRepository(db)
-    server = await repo.get_server(server_id)
+    server = await repo.get(server_id)
     
     if not server or server.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Server not found")
@@ -134,12 +133,12 @@ async def get_server_stats(
 ):
     """دریافت آمار و مانیتورینگ سرور"""
     repo = ServerRepository(db)
-    server = await repo.get_server(server_id)
+    server = await repo.get(server_id)
     
     if not server or server.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Server not found")
         
-    stats = await repo.get_server_stats(server_id)
+    stats = await repo.get_server_metrics(server_id)
     if not stats:
         raise HTTPException(status_code=400, detail="Failed to get server stats")
         
@@ -154,7 +153,7 @@ async def delete_server(
 ):
     """حذف سرور"""
     repo = ServerRepository(db)
-    server = await repo.get_server(server_id)
+    server = await repo.get(server_id)
     
     if not server or server.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Server not found")

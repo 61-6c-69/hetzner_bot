@@ -39,6 +39,10 @@ class HetznerAPI:
         """خاموش کردن سرور"""
         return await self._make_request("POST", f"servers/{server_id}/actions/poweroff")
 
+    async def reset(self, server_id: str):
+        """ریست کردن سرور"""
+        return await self._make_request("POST", f"servers/{server_id}/actions/reset")
+
     async def get_server_metrics(self, server_id: str) -> dict:
         """دریافت آمار سرور"""
         response = await self._make_request("GET", f"servers/{server_id}/metrics")

@@ -1,10 +1,10 @@
 from database.models import Transaction, TransactionType, TransactionStatus, User
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Tuple
-from sqlalchemy import select, and_, or_, func
 from datetime import datetime, timedelta
-from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
+from sqlalchemy import select, func
+from fastapi import HTTPException
 from decimal import Decimal
 
 from repositories.base import BaseRepository

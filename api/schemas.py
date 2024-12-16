@@ -3,6 +3,8 @@ from pydantic import BaseModel, EmailStr, constr, Field
 from datetime import datetime
 from enum import Enum
 
+from api.models import UserResponse
+
 T = TypeVar('T')
 
 

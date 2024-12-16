@@ -1,11 +1,10 @@
-from repositories.transaction_repository import TransactionRepository
-from repositories.user_repository import UserRepository
+from repositories import TransactionRepository, UserRepository, TransactionManager
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from database.models import TransactionStatus
 from utils.payment import payment_handler
 from utils.auth import get_current_user
-from fastapi import APIRouter, Depends, HTTPException
 from database.database import get_db
-from database.models import TransactionStatus
 from typing import List
 from api import schemas
 
@@ -27,7 +26,6 @@ async def create_deposit(
         current_user: schemas.User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db)
 ):
-    repo = TransactionRepository(db)
 
     # Process payment
     payment_result = await payment_handler.create_payment(
@@ -35,8 +33,8 @@ async def create_deposit(
         description=deposit.description or "شارژ حساب کاربری"
     )
 
-    # Create transaction
-    transaction = await repo.create_deposit(
+    transactionManager = TransactionManager(db)
+    transaction, balance = await transactionManager.create_deposit(
         user_id=current_user.id,
         amount=deposit.amount,
         payment_id=payment_result['payment_id'],

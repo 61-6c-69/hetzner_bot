@@ -1,4 +1,4 @@
-from repositories.transaction_repository import TransactionRepository
+from repositories.transaction_repository import TransactionRepository, TransactionManager
 from repositories.user_repository import UserRepository
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,8 +40,9 @@ async def create_payment_link(
     payment_handler = PaymentHandler()
 
     try:
-        # Create pending transaction
-        transaction = await transaction_repo.create_deposit(
+
+        transactionManager = TransactionManager(db)
+        transaction, balance = await transactionManager.create_deposit(
             user_id=current_user.id,
             amount=amount,
             payment_id=None

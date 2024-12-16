@@ -1,27 +1,28 @@
+from utils.notifications import send_notification, NotificationType
+from utils.rate_limiter import rate_limiter, RateLimits
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.models import Server, ServerStats
+from utils.cache_manager import cache_manager
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from database.models import Server, ServerStats
 from utils.hetzner_api import hetzner
-from utils.notifications import send_notification, NotificationType
-from utils.cache_manager import cache_manager
-from utils.rate_limiter import rate_limiter, RateLimits
+from sqlalchemy import select
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class ServerMonitor:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.metrics_ttl = 300  # 5 دقیقه برای کش متریک‌ها
         self.thresholds = {
-            'cpu': 90,      # 90% CPU
-            'memory': 85,   # 85% RAM
-            'disk': 80,     # 80% دیسک
-            'network': {    # محدودیت‌های شبکه
-                'in': 1000 * 1024 * 1024,    # 1 GB/s ورودی
-                'out': 1000 * 1024 * 1024    # 1 GB/s خروجی
+            'cpu': 90,  # 90% CPU
+            'memory': 85,  # 85% RAM
+            'disk': 80,  # 80% دیسک
+            'network': {  # محدودیت‌های شبکه
+                'in': 1000 * 1024 * 1024,  # 1 GB/s ورودی
+                'out': 1000 * 1024 * 1024  # 1 GB/s خروجی
             }
         }
 
@@ -29,8 +30,8 @@ class ServerMonitor:
         """جمع‌آوری متریک‌های سرور"""
         # بررسی محدودیت نرخ درخواست
         if not await rate_limiter.is_allowed(
-            f"server_metrics:{server_id}",
-            limit=RateLimits.SERVER_METRICS
+                f"server_metrics:{server_id}",
+                limit=RateLimits.SERVER_METRICS
         ):
             logger.warning(f"محدودیت نرخ درخواست برای متریک‌های سرور {server_id}")
             return None
@@ -42,12 +43,12 @@ class ServerMonitor:
             server = result.scalar_one_or_none()
             if not server:
                 return None
-            
+
             metrics = await hetzner.get_server_metrics(str(server.hetzner_id))
-            
+
             # ذخیره متریک‌ها در دیتابیس
             await self._save_metrics(server_id, metrics)
-            
+
             return metrics
 
         return await cache_manager.get_or_set(
@@ -121,14 +122,14 @@ class ServerMonitor:
         return issues
 
     async def get_historical_metrics(
-        self,
-        server_id: int,
-        start_time: datetime,
-        end_time: Optional[datetime] = None
+            self,
+            server_id: int,
+            start_time: datetime,
+            end_time: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:
         """دریافت تاریخچه متریک‌ها"""
         end_time = end_time or datetime.utcnow()
-        
+
         result = await self.db.execute(
             select(ServerStats)
             .where(
@@ -138,7 +139,7 @@ class ServerMonitor:
             )
             .order_by(ServerStats.timestamp.asc())
         )
-        
+
         stats = result.scalars().all()
         return [
             {
@@ -153,17 +154,17 @@ class ServerMonitor:
         ]
 
     async def get_performance_summary(
-        self,
-        server_id: int,
-        period: timedelta = timedelta(hours=24)
+            self,
+            server_id: int,
+            period: timedelta = timedelta(hours=24)
     ) -> Dict[str, Any]:
         """دریافت خلاصه عملکرد سرور"""
         start_time = datetime.utcnow() - period
         metrics = await self.get_historical_metrics(server_id, start_time)
-        
+
         if not metrics:
             return None
-            
+
         return {
             'cpu_avg': sum(m['cpu'] for m in metrics) / len(metrics),
             'memory_avg': sum(m['memory'] for m in metrics) / len(metrics),
@@ -210,4 +211,5 @@ class ServerMonitor:
                     }
                 )
 
-server_monitor = ServerMonitor(None)  # باید در زمان استفاده، نمونه با دیتابیس صحیح ایجاد شود 
+
+server_monitor = ServerMonitor(None)  # باید در زمان استفاده، نمونه با دیتابیس صحیح ایجاد شود

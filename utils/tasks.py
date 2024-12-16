@@ -1,12 +1,7 @@
-from datetime import datetime
-from repositories.server_repository import ServerRepository
-from repositories.transaction_repository import TransactionRepository
-from repositories.user_repository import UserRepository
+from repositories import UserRepository, ServerRepository, TransactionRepository, TransactionManager
 from utils.notifications import send_notification, NotificationType
-from utils.hetzner_api import hetzner
 from database.database import AsyncSessionLocal
-from sqlalchemy import select
-from database.models import User
+from datetime import datetime
 
 
 async def calculate_hourly_cost(servers) -> float:
@@ -31,20 +26,13 @@ async def check_and_handle_low_balance():
 
             # محاسبه هزینه ساعت آینده
             hourly_cost = await calculate_hourly_cost(active_servers)
-            
+            balance = await user_repo.get_balance(user.id)
             # اگر موجودی کمتر از هزینه ساعت آینده بود
-            if user.balance < hourly_cost:
+            if balance < hourly_cost:
                 # خاموش کردن سرورها
                 for server in active_servers:
                     try:
-                        # خاموش کردن سرور در هتزنر
-                        await hetzner.power_off(server.hetzner_id)
-                        # به‌روزرسانی وضعیت در دیتابیس
-                        await server_repo.update_status(
-                            server.id,
-                            'stopped',
-                            'Stopped due to insufficient balance'
-                        )
+                        await server_repo.power_off(server.id, server.user_id)
                     except Exception as e:
                         print(f"Error stopping server {server.id}: {e}")
 
@@ -53,7 +41,7 @@ async def check_and_handle_low_balance():
                     user.id,
                     NotificationType.LOW_BALANCE_SHUTDOWN,
                     hourly_cost=hourly_cost,
-                    current_balance=user.balance,
+                    current_balance=balance,
                     servers_count=len(active_servers)
                 )
 
@@ -66,7 +54,7 @@ async def charge_servers():
         user_repo = UserRepository(db)
         
         # دریافت سرورهای فعال
-        servers = await server_repo.get_running_servers()
+        servers = await server_repo.get_all_running_servers()
         
         # گروه‌بندی سرورها بر اساس کاربر
         user_servers = {}
@@ -82,22 +70,19 @@ async def charge_servers():
             
             # دریافت کاربر و بررسی موجودی
             user = await user_repo.get(user_id)
-            if user.balance < hourly_cost:
+            balance = await user_repo.get_balance(user.id)
+
+            if balance < hourly_cost:
                 # اگر موجودی کافی نبود، سرورها را خاموش می‌کنیم
                 for server in user_servers:
-                    await hetzner.power_off(server.hetzner_id)
-                    await server_repo.update_status(
-                        server.id,
-                        'stopped',
-                        'Stopped due to insufficient balance'
-                    )
+                    await server_repo.power_off(server.id, user_id)
                 
                 # ارسال اعلان
                 await send_notification(
                     user_id,
                     NotificationType.LOW_BALANCE_SHUTDOWN,
                     hourly_cost=hourly_cost,
-                    current_balance=user.balance,
+                    current_balance=balance,
                     servers_count=len(user_servers)
                 )
                 continue
@@ -110,13 +95,13 @@ async def charge_servers():
                 
                 if hours >= 1:
                     charge_amount = server.hourly_price * int(hours)
-                    
-                    # ایجاد تراکنش
-                    await transaction_repo.create_server_charge(
+
+                    trans = TransactionManager(db)
+                    await trans.create_server_charge(
                         user_id=server.user_id,
                         amount=charge_amount,
                         server_id=server.id
                     )
                     
                     # آپدیت زمان آخرین شارژ
-                    await server_repo.update_last_charge(server.id, datetime.now())
+                    await server_repo.update(server.id, {"last_charge_at": datetime.now()})

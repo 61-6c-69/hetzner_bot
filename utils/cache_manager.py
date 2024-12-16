@@ -1,10 +1,9 @@
 from typing import Any, Optional, Dict
-from datetime import datetime, timedelta
 from utils.cache import cache_service
 import logging
-import json
 
 logger = logging.getLogger(__name__)
+
 
 class CacheManager:
     def __init__(self):

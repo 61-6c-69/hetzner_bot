@@ -1,7 +1,9 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 
+from database.database import get_db
 from database.models import User, Server
+from repositories import UserRepository, ServerRepository
 from utils.hetzner_api import HetznerAPI
 from utils.keyboards import (
     os_selection_keyboard,
@@ -23,32 +25,35 @@ async def list_servers(callback_query: types.CallbackQuery, state: FSMContext):
     """نمایش لیست سرورهای کاربر"""
     await callback_query.answer()
 
-    user = await User.get(telegram_id=callback_query.from_user.id)
-    servers = await Server.filter(user=user)
+    async for db in get_db():
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_telegram_id(callback_query.from_user.id)
+        server_repo = ServerRepository(db)
+        servers = await server_repo.get_user_servers(user.id)
 
-    if not servers:
-        await callback_query.message.edit_text(
-            "شما هنوز هیچ سروری ندارید! 🤔\n"
-            "برای خرید سرور جدید از دکمه 'خرید سرور' استفاده کنید.",
-            reply_markup=main_menu_keyboard()
-        )
-        return
-
-    keyboard = types.InlineKeyboardMarkup(row_width=1)
-    for server in servers:
-        keyboard.add(
-            types.InlineKeyboardButton(
-                f"🖥 {server.name} ({server.ip})",
-                callback_data=f"server_{server.id}"
+        if not servers:
+            await callback_query.message.edit_text(
+                "شما هنوز هیچ سروری ندارید! 🤔\n"
+                "برای خرید سرور جدید از دکمه 'خرید سرور' استفاده کنید.",
+                reply_markup=main_menu_keyboard()
             )
-        )
-    keyboard.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="main_menu"))
+            return
 
-    await callback_query.message.edit_text(
-        "لیست سرورهای شما:\n"
-        "برای مدیریت هر سرور روی آن کلیک کنید.",
-        reply_markup=keyboard
-    )
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
+        for server in servers:
+            keyboard.add(
+                types.InlineKeyboardButton(
+                    f"🖥 {server.name} ({server.ip})",
+                    callback_data=f"server_{server.id}"
+                )
+            )
+        keyboard.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="main_menu"))
+
+        await callback_query.message.edit_text(
+            "لیست سرورهای شما:\n"
+            "برای مدیریت هر سرور روی آن کلیک کنید.",
+            reply_markup=keyboard
+        )
 
 
 async def server_details(callback_query: types.CallbackQuery, state: FSMContext):
@@ -56,32 +61,35 @@ async def server_details(callback_query: types.CallbackQuery, state: FSMContext)
     await callback_query.answer()
 
     try:
-        server_id = int(callback_query.data.split('_')[1])
-        server = await Server.get(id=server_id)
 
-        # دریافت اطلاعات سرور از هتزنر
-        server_info = await hetzner.get_server_info(str(server.hetzner_id))
+        async for db in get_db():
+            server_repo = ServerRepository(db)
+            server_id = int(callback_query.data.split('_')[1])
+            server = await server_repo.get(server_id)
 
-        if not server_info:
-            await callback_query.message.edit_text(
-                "❌ خطا در دریافت اطلاعات سرور. لطفاً دوباره تلاش کنید.",
-                reply_markup=get_main_keyboard()
+            # دریافت اطلاعات سرور از هتزنر
+            server_info = await hetzner.get_server_info(str(server.hetzner_id))
+
+            if not server_info:
+                await callback_query.message.edit_text(
+                    "❌ خطا در دریافت اطلاعات سرور. لطفاً دوباره تلاش کنید.",
+                    reply_markup=get_main_keyboard()
+                )
+                return
+
+            message = (
+                f"🖥 نام سرور: {server.name}\n"
+                f"🌐 آی‌پی: {server.ip}\n"
+                f"💻 مشخصات: {server.specs.get('description', 'نامشخص')}\n"
+                f"⚡️ وضعیت: {server.status}\n"
+                f"💰 هزینه ساعتی: {server.hourly_price} یورو\n"
+                f"📅 تاریخ ایجاد: {server.created_at.strftime('%Y-%m-%d %H:%M')}\n"
             )
-            return
 
-        message = (
-            f"🖥 نام سرور: {server.name}\n"
-            f"🌐 آی‌پی: {server.ip}\n"
-            f"💻 مشخصات: {server.specs.get('description', 'نامشخص')}\n"
-            f"⚡️ وضعیت: {server.status}\n"
-            f"💰 هزینه ساعتی: {server.hourly_price} یورو\n"
-            f"📅 تاریخ ایجاد: {server.created_at.strftime('%Y-%m-%d %H:%M')}\n"
-        )
-
-        await callback_query.message.edit_text(
-            message,
-            reply_markup=get_server_management_keyboard(server.id)
-        )
+            await callback_query.message.edit_text(
+                message,
+                reply_markup=get_server_management_keyboard(server.id)
+            )
     except Exception as e:
         logger.error(f"Error in server_details: {e}")
         await callback_query.message.edit_text(
@@ -94,59 +102,57 @@ async def power_off(callback_query: types.CallbackQuery, state: FSMContext):
     """خاموش کردن سرور"""
     await callback_query.answer()
 
-    server_id = int(callback_query.data.split('_')[2])
-    server = await Server.get(id=server_id)
+    async for db in get_db():
+        server_id = int(callback_query.data.split('_')[2])
+        server_repo = ServerRepository(db)
+        server = await server_repo.get(id=server_id)
 
-    try:
-        result = await hetzner.power_off(str(server.hetzner_id))
-        if result:
-            server.status = 'off'
-            await server.save()
+        try:
+            result = await server_repo.power_off(server_id, server.user_id)
+            if result:
+                # ارسال نوتیفیکیشن
+                await send_notification(
+                    server.user,
+                    NotificationType.SERVER_STOPPED,
+                    name=server.name
+                )
 
-            # ارسال نوتیفیکیشن
-            await send_notification(
-                server.user,
-                NotificationType.SERVER_STOPPED,
-                name=server.name
-            )
-
+                await callback_query.message.edit_text(
+                    "✅ سرور با موفقیت خاموش شد.",
+                    reply_markup=get_server_management_keyboard(server.id)
+                )
+            else:
+                raise Exception("خطا در خاموش کردن سرور")
+        except Exception as e:
+            logger.error(f"Error powering off server {server_id}: {str(e)}")
             await callback_query.message.edit_text(
-                "✅ سرور با موفقیت خاموش شد.",
+                "❌ خطا در خاموش کردن سرور. لطفاً دوباره تلاش کنید.",
                 reply_markup=get_server_management_keyboard(server.id)
             )
-        else:
-            raise Exception("خطا در خاموش کردن سرور")
-    except Exception as e:
-        logger.error(f"Error powering off server {server_id}: {str(e)}")
-        await callback_query.message.edit_text(
-            "❌ خطا در خاموش کردن سرور. لطفاً دوباره تلاش کنید.",
-            reply_markup=get_server_management_keyboard(server.id)
-        )
 
 
 async def reset_server(callback_query: types.CallbackQuery, state: FSMContext):
     """ریست کردن سرور"""
     await callback_query.answer()
-
-    server_id = int(callback_query.data.split('_')[2])
-    server = await Server.get(id=server_id)
-
-    try:
-        result = await hetzner.reset_server(server.hetzner_id)
-        if result:
+    async for db in get_db():
+        server_id = int(callback_query.data.split('_')[2])
+        server_repo = ServerRepository(db)
+        try:
+            result = await server_repo.reset(server_id)
+            if result:
+                await callback_query.message.edit_text(
+                    "✅ سرور با موفقیت ریست شد.\n"
+                    "لطفاً چند دقیقه صبر کنید تا سرور مجدداً راه‌اندازی شود.",
+                    reply_markup=get_server_management_keyboard(server_id)
+                )
+            else:
+                raise Exception("خطا در ریست کردن سرور")
+        except Exception as e:
+            logger.error(f"Error resetting server {server_id}: {str(e)}")
             await callback_query.message.edit_text(
-                "✅ سرور با موفقیت ریست شد.\n"
-                "لطفاً چند دقیقه صبر کنید تا سرور مجدداً راه‌اندازی شود.",
-                reply_markup=get_server_management_keyboard(server.id)
+                "❌ خطا در ریست کردن سرور. لطفاً دوباره تلاش کنید.",
+                reply_markup=get_server_management_keyboard(server_id)
             )
-        else:
-            raise Exception("خطا در ریست کردن سرور")
-    except Exception as e:
-        logger.error(f"Error resetting server {server.id}: {str(e)}")
-        await callback_query.message.edit_text(
-            "❌ خطا در ریست کردن سرور. لطفاً دوباره تلاش کنید.",
-            reply_markup=get_server_management_keyboard(server.id)
-        )
 
 
 async def change_os(callback_query: types.CallbackQuery, state: FSMContext):

@@ -31,4 +31,4 @@ sqlalchemy[asyncio]>=1.4.0
 asyncpg
 alembic
 greenlet
-redis==4.0.2
+redis
