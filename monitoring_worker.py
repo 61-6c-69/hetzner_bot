@@ -1,19 +1,20 @@
+from database.models import Server, ServerStats
+from utils.server_monitor import ServerMonitor
+from datetime import datetime, timedelta
+from database.database import get_db
+from sqlalchemy import select
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from database.database import async_session_maker
-from utils.server_monitor import ServerMonitor
-from sqlalchemy import select
-from database.models import Server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 async def monitor_servers():
     """مانیتورینگ مداوم سرورها"""
     while True:
         try:
-            async with async_session_maker() as db:
+            async with get_db() as db:
                 monitor = ServerMonitor(db)
                 
                 # دریافت همه سرورهای فعال
@@ -53,18 +54,18 @@ async def monitor_servers():
             # انتظار 5 دقیقه تا چرخه بعدی
             await asyncio.sleep(300)
 
+
 async def cleanup_old_metrics():
     """پاک کردن متریک‌های قدیمی"""
     while True:
         try:
-            async with async_session_maker() as db:
+            async with get_db() as db:
                 # حذف متریک‌های قدیمی‌تر از 30 روز
                 thirty_days_ago = datetime.utcnow() - timedelta(days=30)
                 await db.execute(
                     select(ServerStats)
                     .where(ServerStats.timestamp < thirty_days_ago)
-                    .delete()
-                )
+                ).delete()
                 await db.commit()
                 
         except Exception as e:
@@ -73,6 +74,7 @@ async def cleanup_old_metrics():
         finally:
             # اجرای پاک‌سازی هر 24 ساعت
             await asyncio.sleep(24 * 60 * 60)
+
 
 async def main():
     """تابع اصلی برای اجرای همه وظایف مانیتورینگ"""

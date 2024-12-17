@@ -1,9 +1,7 @@
-from config import REDIS_URL
 from redis import Redis
 import json
-from utils.hetzner_api import hetzner
-from repositories.price_repository import PriceRepository
-from database.database import get_db
+
+from repositories import PriceRepository
 
 redis_client = Redis()
 CACHE_KEY = "server_prices"
@@ -31,7 +29,7 @@ async def update_price_cache():
         prices = get_cached_prices()
 
     # ذخیره در Redis
-    redis_client.setex(
+    await redis_client.setex(
         CACHE_KEY,
         CACHE_DURATION,
         json.dumps(prices)
