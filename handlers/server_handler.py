@@ -1,10 +1,9 @@
-from aiogram import types
-from aiogram.dispatcher import FSMContext
-
-from database.database import get_db
-from database.models import User, Server
+from utils.notifications import send_notification, NotificationType
 from repositories import UserRepository, ServerRepository
+from aiogram.dispatcher import FSMContext
 from utils.hetzner_api import HetznerAPI
+from utils.hetzner_api import hetzner
+from database.database import get_db
 from utils.keyboards import (
     os_selection_keyboard,
     server_type_keyboard,
@@ -13,9 +12,8 @@ from utils.keyboards import (
     get_main_keyboard,
     get_server_management_keyboard
 )
+from aiogram import types
 import logging
-from utils.hetzner_api import hetzner
-from utils.notifications import send_notification, NotificationType
 
 logger = logging.getLogger(__name__)
 hetzner = HetznerAPI()
@@ -82,7 +80,7 @@ async def server_details(callback_query: types.CallbackQuery, state: FSMContext)
                 f"🌐 آی‌پی: {server.ip}\n"
                 f"💻 مشخصات: {server.specs.get('description', 'نامشخص')}\n"
                 f"⚡️ وضعیت: {server.status}\n"
-                f"💰 هزینه ساعتی: {server.hourly_price} یورو\n"
+                f"💰 هزینه ساعتی: {server.hourly_price}\n"
                 f"📅 تاریخ ایجاد: {server.created_at.strftime('%Y-%m-%d %H:%M')}\n"
             )
 
@@ -228,7 +226,7 @@ async def select_hardware(callback_query: types.CallbackQuery, state: FSMContext
         await state.set_state('selecting_location')
 
         await callback_query.message.edit_text(
-            "🌍 لط��اً موقعیت جغرافیایی سرور را انتخاب کنید:",
+            "🌍 لطفاً موقعیت جغرافیایی سرور را انتخاب کنید:",
             reply_markup=location_keyboard()
         )
     except Exception as e:

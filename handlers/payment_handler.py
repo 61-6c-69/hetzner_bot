@@ -1,10 +1,8 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
-from database.database import get_db
 from repositories import UserRepository, TransactionManager, TransactionRepository
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from utils.keyboards import main_menu_keyboard
 from utils.payment import payment_handler
-from database.models import Transaction, User
+from database.database import get_db
 import logging
 
 

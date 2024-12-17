@@ -57,18 +57,13 @@ class UserRepository(BaseRepository[User]):
     async def create(
             self,
             phone: str,
-            username: Optional[str] = None,
-            email: Optional[str] = None,
             telegram_id: Optional[int] = None,
-            password_hash: Optional[str] = None
     ) -> User:
         """Create a new user"""
         user = User(
             phone=phone,
-            username=username,
-            email=email,
             telegram_id=telegram_id,
-            password_hash=password_hash,
+            role=UserRole.USER,
             is_active=True,
             created_at=datetime.utcnow()
         )

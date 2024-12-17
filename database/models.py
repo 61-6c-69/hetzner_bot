@@ -29,12 +29,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True)
-    email = Column(String(255), unique=True)
     phone = Column(String(15), unique=True)
     first_name = Column(String(50))
     last_name = Column(String(50), nullable=True)
-    password_hash = Column(String(128))
     role = Column(SQLEnum(UserRole), default=UserRole.USER)
     telegram_id = Column(Integer, unique=True, nullable=True)
     is_active = Column(Boolean, default=True)
